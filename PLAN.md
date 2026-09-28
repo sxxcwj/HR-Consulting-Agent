@@ -6,7 +6,7 @@
 
 根据用户最新要求，V0.1 的模型提供方改为 DeepSeek，继续使用 OpenAI 官方 Python SDK 的兼容接口。M1—M8 均已完成；12 个固定案例全部通过结构和范围检查，11/12 通过七维内容质量评审，真实 API 在线测试一次性 14/14 通过。具体证据见 `evals/ACCEPTANCE_REPORT.md`。
 
-V0.2 通过 M9 增加离职率 Tool；V0.3 通过 M10 增加只读 Excel 元数据；V0.4 通过 M11 增加五个描述性分析 Tool；V0.5 通过 M12 增加本地企业文件知识库；V0.6 通过 M13 增加本地 RAG；V0.7 通过 M14 增加显式项目 State；V0.8 通过 M15 增加显式长期 Memory；V0.9 通过 M16 增加 Markdown 报告生成；V1.0 只通过 M17 完成发布加固。
+V0.2 通过 M9 增加离职率 Tool；V0.3 通过 M10 增加只读 Excel 元数据；V0.4 通过 M11 增加五个描述性分析 Tool；V0.5 通过 M12 增加本地企业文件知识库；V0.6 通过 M13 增加本地 RAG；V0.7 通过 M14 增加显式项目 State；V0.8 通过 M15 增加显式长期 Memory；V0.9 通过 M16 增加 Markdown 报告生成；V1.0 通过 M17 完成发布加固，并按最新要求在 M18 只增加原生流式输出。
 
 ## M1 项目初始化
 
@@ -503,3 +503,29 @@ python -m src.main
 **Tests**：新增 11 项离线加固测试；完整离线回归 `245 passed, 21 deselected`；最终代码状态下完整真实 DeepSeek 回归 `21 passed, 245 deselected`。`hragent`（含项目外目录）与 `python -m src.main` 启动/退出通过，`pip check`、Python 3.11/3.12/3.13 `compileall`、TOML/YAML/JSON 解析、28 Tool 唯一性、精确依赖比对、权限检查、密钥模式扫描和 `git diff --check` 通过。密钥扫描仅命中两条用于拒绝凭据的虚构测试值。
 
 **Known Limitations**：V1.0 仍是本地单用户 CLI，不承诺多人并发、企业级权限、云同步或真实员工敏感数据生产使用。完整测试本地运行环境为 Python 3.13；Python 3.11/3.12 已完成源码编译检查，完整依赖与离线回归由 CI 矩阵验证。真实客户匿名化试点尚未执行，不能把 RC 视为生产合规认证。
+
+## M18 Streaming Output
+
+**Objective**：在不改变 Agent 业务逻辑、Prompt、Skills、Tools 和五部分输出结构的前提下，把 CLI 改为 Responses API 原生流式文本输出。
+
+**Tasks**：使用 SDK 的 `responses.stream()` 完整消费事件；只转发 `ResponseTextDeltaEvent`；保留最终 Response 与完整可见文本；保持 Function Tool 循环；增加流式错误处理、专项测试和 README 说明；完成 V0.1—V0.9 回归与真实 CLI 验证。
+
+**Files**：`src/agent.py`、`src/main.py`、`tests/test_streaming.py`、`README.md`、相关规格文档、`PLAN.md`。
+
+**Acceptance Criteria**：普通问题和 Tool Call 均可流式完成；非 Tool 问题不乱调用；工具错误可控；只显示文本 delta；最终响应可取得；流失败不提交历史且无 traceback；既有回归通过；不新增业务能力。
+
+**Validation Command**：
+
+```bash
+python -m pytest -q tests/test_streaming.py
+python -m pytest -q
+python -m src.main
+```
+
+**Status**：DONE
+
+**Implemented**：CLI 默认调用 `HRConsultant.ask_streamed()`；Agent 使用官方 SDK `responses.stream()`，只转发 `ResponseTextDeltaEvent` 的文本 delta，完整消费每轮流后通过 `get_final_response()` 取得最终 Response，再沿用既有 Function Tool 循环。内部输出前缀、工具参数、调用标识和 JSON 不对普通用户显示；非流式 `ask()` 继续保留。
+
+**Tests**：新增 7 项流式测试，覆盖普通问答、Tool Call、无需 Tool、工具参数错误、流式/非流式最终文本一致、最终响应保留、内部事件/前缀隐藏和中断错误（部分断言合并于同一案例）；专项 `7 passed`，完整离线回归 `256 passed, 21 deselected`，完整在线回归最终复验 `21 passed, 256 deselected`。真实 CLI 通过离职率工具链得到平均人数 190、离职率 15.79%，并以五部分自然语言流式显示。首次在线全量运行有 1 项模型随机格式漂移，单项复验与第二次全量复验均通过。
+
+**Known Limitations**：终端已经显示的流式文字无法撤回；若模型最终内容不符合固定结构，程序会停止本轮、不给会话历史提交该回答，并提示重试。Streaming 不改变模型本身可能出现的随机格式波动。

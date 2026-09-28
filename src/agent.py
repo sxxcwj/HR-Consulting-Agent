@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from openai import (
@@ -17,6 +17,7 @@ from openai import (
     OpenAIError,
     RateLimitError,
 )
+from openai.types.responses import ResponseTextDeltaEvent
 
 from .analytics import ANALYSIS_FUNCTIONS, ANALYSIS_TOOLS
 from .knowledge import (
@@ -81,6 +82,17 @@ RAG_ANSWER_PREFIX = "RAG_ANSWER:"
 PROJECT_STATE_PREFIX = "PROJECT_STATE:"
 MEMORY_PREFIX = "MEMORY:"
 REPORT_PREFIX = "REPORT:"
+INTERNAL_OUTPUT_PREFIXES = (
+    OUT_OF_SCOPE_PREFIX,
+    EXCEL_METADATA_PREFIX,
+    EXCEL_ANALYSIS_UNSUPPORTED_PREFIX,
+    DATA_ANALYSIS_PREFIX,
+    KNOWLEDGE_ANSWER_PREFIX,
+    RAG_ANSWER_PREFIX,
+    PROJECT_STATE_PREFIX,
+    MEMORY_PREFIX,
+    REPORT_PREFIX,
+)
 COMPENSATION_JUDGMENT_MESSAGE = (
     "当前基础统计不能直接判断哪个部门的工资设计最不合理。还需要岗位、职级、"
     "市场薪酬、内部薪酬带宽和岗位价值等数据，并明确比较口径。"
@@ -149,6 +161,67 @@ class ResponseFormatError(AgentError):
     """The model did not return a complete five-part analysis."""
 
 
+class _VisibleTextDelta:
+    """Hide internal routing prefixes while forwarding only visible text deltas."""
+
+    def __init__(self, emit: Callable[[str], None]) -> None:
+        self._emit_callback = emit
+        self._prefix_buffer = ""
+        self._trailing_whitespace = ""
+        self._resolved_prefix = False
+        self._visible_parts: list[str] = []
+
+    @property
+    def text(self) -> str:
+        return "".join(self._visible_parts)
+
+    def feed(self, delta: str) -> None:
+        if not delta:
+            return
+        if self._resolved_prefix:
+            self._emit_without_trailing_whitespace(delta)
+            return
+
+        self._prefix_buffer += delta
+        candidate = self._prefix_buffer.lstrip()
+        if not candidate:
+            return
+        if any(prefix.startswith(candidate) for prefix in INTERNAL_OUTPUT_PREFIXES):
+            return
+
+        visible = candidate
+        for prefix in INTERNAL_OUTPUT_PREFIXES:
+            if candidate.startswith(prefix):
+                visible = candidate[len(prefix) :].lstrip()
+                break
+        self._resolved_prefix = True
+        self._prefix_buffer = ""
+        self._emit_without_trailing_whitespace(visible)
+
+    def finish(self) -> None:
+        if not self._resolved_prefix and self._prefix_buffer:
+            candidate = self._prefix_buffer.lstrip()
+            for prefix in INTERNAL_OUTPUT_PREFIXES:
+                if candidate.startswith(prefix):
+                    candidate = candidate[len(prefix) :].lstrip()
+                    break
+            self._resolved_prefix = True
+            self._prefix_buffer = ""
+            self._emit_without_trailing_whitespace(candidate)
+        # Match the non-streaming API, which returns stripped final text.
+        self._trailing_whitespace = ""
+
+    def _emit_without_trailing_whitespace(self, text: str) -> None:
+        combined = self._trailing_whitespace + text
+        match = re.search(r"\s*$", combined)
+        trailing_start = match.start() if match else len(combined)
+        visible = combined[:trailing_start]
+        self._trailing_whitespace = combined[trailing_start:]
+        if visible:
+            self._visible_parts.append(visible)
+            self._emit_callback(visible)
+
+
 def validate_analysis(text: str) -> None:
     """Require five populated level-one sections in the specified order."""
     if not text.strip():
@@ -214,6 +287,8 @@ class HRConsultant:
         self.client = client
         self.history: list[dict[str, str]] = []
         self.last_tool_calls: list[str] = []
+        self.last_response: Any | None = None
+        self.last_final_output: str | None = None
 
     def _create_response(self, input_items: list[Any]) -> Any:
         try:
@@ -224,6 +299,43 @@ class HRConsultant:
                 tools=REGISTERED_TOOLS,
                 parallel_tool_calls=False,
             )
+        except AuthenticationError as exc:
+            raise AgentError("DeepSeek API 认证失败，请检查 DEEPSEEK_API_KEY。") from exc
+        except RateLimitError as exc:
+            raise AgentError("DeepSeek API 请求受限，请稍后重试或检查账户额度。") from exc
+        except APITimeoutError as exc:
+            raise AgentError("DeepSeek API 请求超时，请稍后重试。") from exc
+        except APIConnectionError as exc:
+            raise AgentError("无法连接 DeepSeek API，请检查网络连接。") from exc
+        except APIStatusError as exc:
+            if exc.status_code == 402:
+                raise AgentError("DeepSeek API 账户余额不足，请检查账户余额。") from exc
+            if exc.status_code in (400, 404, 422):
+                raise AgentError(
+                    f"DeepSeek API 返回错误状态 {exc.status_code}，请检查 DEEPSEEK_MODEL、请求参数与账户权限。"
+                ) from exc
+            raise AgentError(f"DeepSeek API 返回错误状态 {exc.status_code}，请稍后重试。") from exc
+        except OpenAIError as exc:
+            raise AgentError("DeepSeek API 请求失败，请稍后重试。") from exc
+
+    def _create_streamed_response(
+        self,
+        input_items: list[Any],
+        on_text_delta: Callable[[str], None],
+    ) -> Any:
+        """Consume one complete Responses API stream and return its final response."""
+        try:
+            with self.client.responses.stream(
+                model=self.model,
+                instructions=AGENT_INSTRUCTIONS,
+                input=input_items,
+                tools=REGISTERED_TOOLS,
+                parallel_tool_calls=False,
+            ) as stream:
+                for event in stream:
+                    if isinstance(event, ResponseTextDeltaEvent):
+                        on_text_delta(event.delta)
+                return stream.get_final_response()
         except AuthenticationError as exc:
             raise AgentError("DeepSeek API 认证失败，请检查 DEEPSEEK_API_KEY。") from exc
         except RateLimitError as exc:
@@ -378,32 +490,60 @@ class HRConsultant:
             tool_call_count += len(tool_calls)
             response = self._create_response(input_items)
 
+        self.last_response = response
         result = getattr(response, "output_text", None)
         if not isinstance(result, str) or not result.strip():
             raise ResponseFormatError("模型未返回可用的文本内容，请重试。")
         return result.strip()
 
-    def ask(self, question: str) -> str:
-        """Answer once and commit the turn only after a valid reply."""
-        if not question.strip():
-            raise AgentError("请输入企业人力资源管理问题。")
+    def _request_streamed(
+        self,
+        messages: list[dict[str, str]],
+        on_text_delta: Callable[[str], None],
+    ) -> str:
+        """Run the existing tool loop while fully consuming every response stream."""
+        input_items: list[Any] = list(messages)
+        response = self._create_streamed_response(input_items, on_text_delta)
+        tool_call_count = 0
 
-        self.last_tool_calls = []
-        if boundary := management_boundary_message(question):
-            pending = [*self.history, {"role": "user", "content": question.strip()}]
-            self.history = [
-                *pending,
-                {"role": "assistant", "content": boundary},
-            ]
-            return boundary
+        while tool_calls := self._tool_calls(response):
+            if tool_call_count + len(tool_calls) > MAX_TOOL_CALLS_PER_REQUEST:
+                raise AgentError("模型请求了过多工具调用，本次分析已停止，请重试。")
 
-        pending = [*self.history, {"role": "user", "content": question.strip()}]
-        answer = self._request(pending)
+            tool_outputs: list[dict[str, str]] = []
+            for call in tool_calls:
+                call_id = self._item_value(call, "call_id")
+                if not isinstance(call_id, str) or not call_id:
+                    raise AgentError("模型返回的工具调用缺少 call_id，请重试。")
+                result = self._execute_tool_call(call)
+                tool_outputs.append(
+                    {
+                        "type": "function_call_output",
+                        "call_id": call_id,
+                        "output": json.dumps(result, ensure_ascii=False),
+                    }
+                )
+
+            response_output = getattr(response, "output", None)
+            if not isinstance(response_output, list):
+                raise AgentError("模型返回了无效的工具调用响应，请重试。")
+            input_items = [*input_items, *response_output, *tool_outputs]
+            tool_call_count += len(tool_calls)
+            response = self._create_streamed_response(input_items, on_text_delta)
+
+        self.last_response = response
+        result = getattr(response, "output_text", None)
+        if not isinstance(result, str) or not result.strip():
+            raise ResponseFormatError("模型未返回可用的文本内容，请重试。")
+        return result.strip()
+
+    @staticmethod
+    def _normalize_model_answer(answer: str) -> tuple[str, bool]:
+        """Remove internal routing markers and identify five-part analyses."""
         if answer.startswith(OUT_OF_SCOPE_PREFIX):
             boundary = answer[len(OUT_OF_SCOPE_PREFIX) :].strip()
             if boundary == OUT_OF_SCOPE_MESSAGE:
-                self.history = [*pending, {"role": "assistant", "content": boundary}]
-                return boundary
+                return boundary, False
         if answer.startswith(EXCEL_ANALYSIS_UNSUPPORTED_PREFIX):
             boundary = answer[len(EXCEL_ANALYSIS_UNSUPPORTED_PREFIX) :].strip()
             if boundary in {
@@ -411,61 +551,108 @@ class HRConsultant:
                 PERSONNEL_DECISION_MESSAGE,
                 EXCEL_ANALYSIS_UNSUPPORTED_MESSAGE,
             }:
-                self.history = [*pending, {"role": "assistant", "content": boundary}]
-                return boundary
-        if answer.startswith(DATA_ANALYSIS_PREFIX):
-            analysis = answer[len(DATA_ANALYSIS_PREFIX) :].strip()
-            if not analysis:
-                raise ResponseFormatError("模型未返回数据分析内容，请重试。")
-            self.history = [*pending, {"role": "assistant", "content": analysis}]
-            return analysis
-        if answer.startswith(EXCEL_METADATA_PREFIX):
-            metadata = answer[len(EXCEL_METADATA_PREFIX) :].strip()
-            if not metadata:
-                raise ResponseFormatError("模型未返回 Excel 元数据内容，请重试。")
-            self.history = [*pending, {"role": "assistant", "content": metadata}]
-            return metadata
-        if answer.startswith(KNOWLEDGE_ANSWER_PREFIX):
-            knowledge_answer = answer[len(KNOWLEDGE_ANSWER_PREFIX) :].strip()
-            if not knowledge_answer:
-                raise ResponseFormatError("模型未返回知识库读取结果，请重试。")
-            self.history = [*pending, {"role": "assistant", "content": knowledge_answer}]
-            return knowledge_answer
-        if answer.startswith(RAG_ANSWER_PREFIX):
-            rag_answer = answer[len(RAG_ANSWER_PREFIX) :].strip()
-            if not rag_answer:
-                raise ResponseFormatError("模型未返回 RAG 检索回答，请重试。")
-            self.history = [*pending, {"role": "assistant", "content": rag_answer}]
-            return rag_answer
-        if answer.startswith(PROJECT_STATE_PREFIX):
-            state_answer = answer[len(PROJECT_STATE_PREFIX) :].strip()
-            if not state_answer:
-                raise ResponseFormatError("模型未返回项目 State 结果，请重试。")
-            self.history = [*pending, {"role": "assistant", "content": state_answer}]
-            return state_answer
-        if answer.startswith(MEMORY_PREFIX):
-            memory_answer = answer[len(MEMORY_PREFIX) :].strip()
-            if not memory_answer:
-                raise ResponseFormatError("模型未返回 Memory 结果，请重试。")
-            self.history = [*pending, {"role": "assistant", "content": memory_answer}]
-            return memory_answer
-        if answer.startswith(REPORT_PREFIX):
-            report_answer = answer[len(REPORT_PREFIX) :].strip()
-            if not report_answer:
-                raise ResponseFormatError("模型未返回报告生成结果，请重试。")
-            self.history = [*pending, {"role": "assistant", "content": report_answer}]
-            return report_answer
-        try:
-            validate_analysis(answer)
-        except ResponseFormatError:
-            # One repair attempt avoids showing an incomplete analysis to the user.
-            repair = [
-                *pending,
-                {"role": "assistant", "content": answer},
-                {"role": "user", "content": FORMAT_REPAIR_INSTRUCTIONS},
-            ]
-            answer = self._request(repair)
-            validate_analysis(answer)
+                return boundary, False
 
+        prefixed_outputs = (
+            (DATA_ANALYSIS_PREFIX, "模型未返回数据分析内容，请重试。"),
+            (EXCEL_METADATA_PREFIX, "模型未返回 Excel 元数据内容，请重试。"),
+            (KNOWLEDGE_ANSWER_PREFIX, "模型未返回知识库读取结果，请重试。"),
+            (RAG_ANSWER_PREFIX, "模型未返回 RAG 检索回答，请重试。"),
+            (PROJECT_STATE_PREFIX, "模型未返回项目 State 结果，请重试。"),
+            (MEMORY_PREFIX, "模型未返回 Memory 结果，请重试。"),
+            (REPORT_PREFIX, "模型未返回报告生成结果，请重试。"),
+        )
+        for prefix, error_message in prefixed_outputs:
+            if answer.startswith(prefix):
+                visible = answer[len(prefix) :].strip()
+                if not visible:
+                    raise ResponseFormatError(error_message)
+                return visible, False
+        return answer, True
+
+    def _commit_answer(
+        self,
+        pending: list[dict[str, str]],
+        answer: str,
+    ) -> str:
         self.history = [*pending, {"role": "assistant", "content": answer}]
+        self.last_final_output = answer
         return answer
+
+    def ask(self, question: str) -> str:
+        """Answer once and commit the turn only after a valid reply."""
+        if not question.strip():
+            raise AgentError("请输入企业人力资源管理问题。")
+
+        self.last_tool_calls = []
+        self.last_response = None
+        self.last_final_output = None
+        if boundary := management_boundary_message(question):
+            pending = [*self.history, {"role": "user", "content": question.strip()}]
+            return self._commit_answer(pending, boundary)
+
+        pending = [*self.history, {"role": "user", "content": question.strip()}]
+        raw_answer = self._request(pending)
+        answer, needs_validation = self._normalize_model_answer(raw_answer)
+        if needs_validation:
+            try:
+                validate_analysis(answer)
+            except ResponseFormatError:
+                # One repair attempt avoids showing an incomplete analysis to the user.
+                repair = [
+                    *pending,
+                    {"role": "assistant", "content": answer},
+                    {"role": "user", "content": FORMAT_REPAIR_INSTRUCTIONS},
+                ]
+                repaired = self._request(repair)
+                answer, needs_validation = self._normalize_model_answer(repaired)
+                if needs_validation:
+                    validate_analysis(answer)
+
+        return self._commit_answer(pending, answer)
+
+    def ask_streamed(
+        self,
+        question: str,
+        *,
+        on_text_delta: Callable[[str], None],
+    ) -> str:
+        """Stream visible model text and return the complete validated final output."""
+        if not question.strip():
+            raise AgentError("请输入企业人力资源管理问题。")
+
+        self.last_tool_calls = []
+        self.last_response = None
+        self.last_final_output = None
+        pending = [*self.history, {"role": "user", "content": question.strip()}]
+        if boundary := management_boundary_message(question):
+            on_text_delta(boundary)
+            return self._commit_answer(pending, boundary)
+
+        visible_stream = _VisibleTextDelta(on_text_delta)
+        raw_answer = self._request_streamed(pending, visible_stream.feed)
+        answer, needs_validation = self._normalize_model_answer(raw_answer)
+        visible_stream.finish()
+
+        if visible_stream.text != answer:
+            if not visible_stream.text:
+                # Some compatible providers may omit delta events while still
+                # returning a complete final response.
+                on_text_delta(answer)
+            else:
+                raise ResponseFormatError(
+                    "流式文本与最终响应不一致，本次回答未保存，请重试。"
+                )
+
+        if needs_validation:
+            try:
+                validate_analysis(answer)
+            except ResponseFormatError:
+                # Once text has been displayed it cannot be replaced safely.
+                # Preserve the five-part contract by rejecting, not committing,
+                # a malformed streamed answer.
+                raise ResponseFormatError(
+                    "模型流式回复未遵循五部分结构，本次回答未保存，请重试。"
+                )
+
+        return self._commit_answer(pending, answer)

@@ -1,6 +1,6 @@
 # Project Objective
 
-开发企业人力资源顾问 Agent V1.0 Release Candidate（Agent Name：HR Consultant）。V1.0 不新增业务能力，完整继承 V0.1—V0.9，并集中完成版本控制、安全权限、工具编排、可安装 CLI、依赖锁定、跨版本评测和发布文档加固。Codex 应以当前发布加固 Milestone 为工作边界，完成后停止。
+开发企业人力资源顾问 Agent V1.0 Release Candidate（Agent Name：HR Consultant）。V1.0 不新增业务能力，完整继承 V0.1—V0.9，并集中完成版本控制、安全权限、工具编排、可安装 CLI、依赖锁定、跨版本评测、发布文档和原生流式输出加固。Codex 应以当前发布加固 Milestone 为工作边界，完成后停止。
 
 # Product Source of Truth
 

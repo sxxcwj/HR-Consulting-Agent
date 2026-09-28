@@ -673,3 +673,7 @@ Report Generator 只排版和保存，不读取任何上游数据。Agent 应先
 ### 23.6 Quality Check
 
 发送前确认：用户是否明确要求报告；上游事实是否实际取得；事实是否对应来源索引；假设与建议是否正确标识；缺口与限制是否保留；是否没有个人敏感信息或密钥；Tool 是否真实成功；返回路径是否来自 Tool；是否未声称生成 Word、PDF、图表或其他未实现格式。
+
+## 24. Streaming Delivery Behavior
+
+Streaming 是 CLI 传输层行为，不改变 Agent 的角色、Prompt、工具选择、证据判断和输出协议。只允许把模型的 `response.output_text.delta` 文本显示给用户；Function Tool 参数、结果对象、调用标识和 SDK 事件保持隐藏。所有流必须完整消费，Tool 调用结束后 Agent 继续生成自然语言答案。成功结束时保留完整最终响应与可见文本；流中断或最终结构无效时不得把不完整回答写入对话历史，也不得声称回答已经完成。正式 HR 分析仍须符合第 8 节的五部分结构。
