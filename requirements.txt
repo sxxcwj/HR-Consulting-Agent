@@ -1,0 +1,7 @@
+openai>=2.29.0,<3
+openpyxl>=3.1.0,<4
+pypdf>=6.0.0,<7
+python-docx>=1.2.0,<2
+python-dotenv>=1.0.0,<2
+sentence-transformers>=5.1.0,<6
+pytest>=9,<10

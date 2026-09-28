@@ -1,0 +1,620 @@
+"""DeepSeek-backed HR Consultant, tool orchestration, and response validation."""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+from collections.abc import Mapping
+from typing import Any
+
+from openai import (
+    APIConnectionError,
+    APIStatusError,
+    APITimeoutError,
+    AuthenticationError,
+    OpenAI,
+    OpenAIError,
+    RateLimitError,
+)
+
+from .analytics import ANALYSIS_FUNCTIONS, ANALYSIS_TOOLS
+from .knowledge import (
+    KNOWLEDGE_TOOLS,
+    RAG_TOOLS,
+    build_knowledge_index,
+    get_document_metadata,
+    get_knowledge_index_status,
+    list_documents,
+    read_knowledge_document,
+    register_document,
+    search_knowledge_base,
+)
+from .memory import (
+    MEMORY_TOOLS,
+    archive_memory,
+    forget_memory,
+    get_memory,
+    list_memories,
+    save_memory,
+    search_memories,
+    update_memory,
+)
+from .prompts import AGENT_INSTRUCTIONS, FORMAT_REPAIR_INSTRUCTIONS
+from .reports import REPORT_TOOLS, generate_hr_report
+from .state import (
+    PROJECT_STATE_TOOLS,
+    archive_project_state,
+    create_project_state,
+    get_project_state,
+    list_project_states,
+    select_project_state,
+    update_project_state,
+)
+from .tools import (
+    EXCEL_READER_TOOL,
+    TURNOVER_RATE_TOOL,
+    TurnoverRateInputError,
+    calculate_turnover_rate,
+    read_excel_data,
+    read_excel_metadata,
+)
+
+
+HEADINGS = (
+    "问题判断",
+    "可能原因",
+    "需要补充的信息",
+    "建议措施",
+    "下一步行动",
+)
+HEADING_PATTERN = re.compile(r"^# (.+?)\s*$", re.MULTILINE)
+DEFAULT_MODEL = "deepseek-flash"
+DEEPSEEK_BASE_URL = "https://api.deepseek.com"
+OUT_OF_SCOPE_PREFIX = "OUT_OF_SCOPE:"
+OUT_OF_SCOPE_MESSAGE = "此请求不属于 HR Consultant V0.9 的企业 HR 管理分析范围。"
+EXCEL_METADATA_PREFIX = "EXCEL_METADATA:"
+EXCEL_ANALYSIS_UNSUPPORTED_PREFIX = "EXCEL_ANALYSIS_UNSUPPORTED:"
+DATA_ANALYSIS_PREFIX = "DATA_ANALYSIS:"
+KNOWLEDGE_ANSWER_PREFIX = "KNOWLEDGE_ANSWER:"
+RAG_ANSWER_PREFIX = "RAG_ANSWER:"
+PROJECT_STATE_PREFIX = "PROJECT_STATE:"
+MEMORY_PREFIX = "MEMORY:"
+REPORT_PREFIX = "REPORT:"
+COMPENSATION_JUDGMENT_MESSAGE = (
+    "当前基础统计不能直接判断哪个部门的工资设计最不合理。还需要岗位、职级、"
+    "市场薪酬、内部薪酬带宽和岗位价值等数据，并明确比较口径。"
+)
+PERSONNEL_DECISION_MESSAGE = (
+    "不能根据基础统计直接决定谁应该被淘汰、辞退、晋升或调薪。人员决策还需要岗位要求、"
+    "持续绩效证据、能力与行为事实、改进支持记录及合规程序，并应由管理者审慎决策。"
+)
+EXCEL_ANALYSIS_UNSUPPORTED_MESSAGE = (
+    "V0.4只支持描述性统计、基础分组统计和明确公式计算；当前请求涉及复杂异常检测、"
+    "相关性、预测、因果判断或数据不足的管理结论，暂不支持。"
+)
+MAX_TOOL_CALLS_PER_REQUEST = 7
+REGISTERED_TOOLS = [
+    TURNOVER_RATE_TOOL,
+    EXCEL_READER_TOOL,
+    *ANALYSIS_TOOLS,
+    *KNOWLEDGE_TOOLS,
+    *RAG_TOOLS,
+    *PROJECT_STATE_TOOLS,
+    *MEMORY_TOOLS,
+    *REPORT_TOOLS,
+]
+EXCEL_ANALYSIS_PATTERNS = (
+    re.compile(r"哪些员工.*(?:工资|薪酬).*(?:异常|离群)"),
+    re.compile(r"(?:绩效.*工资|工资.*绩效).*(?:关系|相关)"),
+    re.compile(r"哪个部门.*离职率.*(?:最高|最低)"),
+    re.compile(r"(?:复杂异常|异常值识别|相关性分析|因果推断|预测模型|机器学习)"),
+)
+
+
+class AgentError(Exception):
+    """An error safe to explain to a terminal user."""
+
+
+class ResponseFormatError(AgentError):
+    """The model did not return a complete five-part analysis."""
+
+
+def validate_analysis(text: str) -> None:
+    """Require five populated level-one sections in the specified order."""
+    if not text.strip():
+        raise ResponseFormatError("模型返回了空内容，请重试。")
+
+    matches = list(HEADING_PATTERN.finditer(text))
+    if tuple(match.group(1) for match in matches) != HEADINGS:
+        raise ResponseFormatError("模型回复未遵循五部分结构，请重试。")
+
+    preamble = text[: matches[0].start()].strip()
+    if preamble and len(preamble.splitlines()) != 1:
+        raise ResponseFormatError("模型回复的标题前说明过长，请重试。")
+
+    for index, match in enumerate(matches):
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        if not text[match.end() : end].strip():
+            raise ResponseFormatError("模型回复存在空白部分，请重试。")
+
+
+def is_unsupported_excel_analysis(question: str) -> bool:
+    """Identify analysis beyond V0.4's descriptive-statistics boundary."""
+    normalized = question.strip().lower()
+    return any(pattern.search(normalized) for pattern in EXCEL_ANALYSIS_PATTERNS)
+
+
+def management_boundary_message(question: str) -> str | None:
+    """Return a fixed boundary for unsupported management decisions."""
+    normalized = question.strip().lower()
+    if re.search(r"(?:工资|薪酬).*(?:设计)?.*(?:最不合理|不合理|过高|过低)", normalized):
+        return COMPENSATION_JUDGMENT_MESSAGE
+    if re.search(
+        r"(?:谁.*(?:淘汰|辞退|晋升|调薪|录用)|(?:淘汰|辞退|晋升|调薪|录用).*谁)",
+        normalized,
+    ):
+        return PERSONNEL_DECISION_MESSAGE
+    if re.search(r"(?:哪些员工|哪个员工|这个员工|该员工).*(?:绩效差|表现差|能力差)", normalized):
+        return EXCEL_ANALYSIS_UNSUPPORTED_MESSAGE
+    if is_unsupported_excel_analysis(normalized):
+        return EXCEL_ANALYSIS_UNSUPPORTED_MESSAGE
+    return None
+
+
+class HRConsultant:
+    """Keep conversation in-process and use only explicit persistent Memory tools."""
+
+    def __init__(self, *, client: OpenAI | None = None, model: str | None = None) -> None:
+        selected_model = model or os.getenv("DEEPSEEK_MODEL", DEFAULT_MODEL)
+        if not selected_model.strip():
+            raise AgentError("DEEPSEEK_MODEL 不能为空。")
+        self.model = selected_model.strip()
+
+        if client is None:
+            api_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
+            if not api_key:
+                raise AgentError("未设置 DEEPSEEK_API_KEY，请先在运行环境中配置。")
+            client = OpenAI(
+                api_key=api_key,
+                base_url=DEEPSEEK_BASE_URL,
+                timeout=30.0,
+                max_retries=2,
+            )
+
+        self.client = client
+        self.history: list[dict[str, str]] = []
+        self.last_tool_calls: list[str] = []
+
+    def _create_response(self, input_items: list[Any]) -> Any:
+        try:
+            return self.client.responses.create(
+                model=self.model,
+                instructions=AGENT_INSTRUCTIONS,
+                input=input_items,
+                tools=REGISTERED_TOOLS,
+                parallel_tool_calls=False,
+            )
+        except AuthenticationError as exc:
+            raise AgentError("DeepSeek API 认证失败，请检查 DEEPSEEK_API_KEY。") from exc
+        except RateLimitError as exc:
+            raise AgentError("DeepSeek API 请求受限，请稍后重试或检查账户额度。") from exc
+        except APITimeoutError as exc:
+            raise AgentError("DeepSeek API 请求超时，请稍后重试。") from exc
+        except APIConnectionError as exc:
+            raise AgentError("无法连接 DeepSeek API，请检查网络连接。") from exc
+        except APIStatusError as exc:
+            if exc.status_code == 402:
+                raise AgentError("DeepSeek API 账户余额不足，请检查账户余额。") from exc
+            if exc.status_code in (400, 404, 422):
+                raise AgentError(
+                    f"DeepSeek API 返回错误状态 {exc.status_code}，请检查 DEEPSEEK_MODEL、请求参数与账户权限。"
+                ) from exc
+            raise AgentError(f"DeepSeek API 返回错误状态 {exc.status_code}，请稍后重试。") from exc
+        except OpenAIError as exc:
+            raise AgentError("DeepSeek API 请求失败，请稍后重试。") from exc
+
+    @staticmethod
+    def _item_value(item: Any, field: str) -> Any:
+        if isinstance(item, Mapping):
+            return item.get(field)
+        return getattr(item, field, None)
+
+    def _tool_calls(self, response: Any) -> list[Any]:
+        output = getattr(response, "output", None)
+        if not isinstance(output, list):
+            return []
+        return [
+            item
+            for item in output
+            if self._item_value(item, "type") == "function_call"
+        ]
+
+    def _execute_tool_call(self, call: Any) -> dict[str, Any]:
+        name = self._item_value(call, "name")
+        raw_arguments = self._item_value(call, "arguments")
+        try:
+            arguments = json.loads(raw_arguments)
+            if not isinstance(arguments, dict):
+                raise TypeError
+        except (json.JSONDecodeError, TypeError):
+            return {"error": "工具参数必须是有效的 JSON 对象。"}
+
+        if name == "calculate_turnover_rate":
+            self.last_tool_calls.append(name)
+            try:
+                return calculate_turnover_rate(**arguments)
+            except (TurnoverRateInputError, TypeError) as exc:
+                return {"error": str(exc)}
+        if name == "read_excel_metadata":
+            self.last_tool_calls.append(name)
+            try:
+                return read_excel_metadata(**arguments)
+            except TypeError as exc:
+                return {
+                    "success": False,
+                    "error": {"code": "invalid_arguments", "message": str(exc)},
+                }
+        if name == "register_knowledge_document":
+            self.last_tool_calls.append(name)
+            try:
+                return register_document(**arguments)
+            except TypeError as exc:
+                return {
+                    "success": False,
+                    "error": {"code": "invalid_arguments", "message": str(exc)},
+                }
+        if name == "list_knowledge_documents":
+            self.last_tool_calls.append(name)
+            if arguments:
+                return {
+                    "success": False,
+                    "error": {
+                        "code": "invalid_arguments",
+                        "message": "list_knowledge_documents 不接受参数。",
+                    },
+                }
+            return list_documents()
+        if name == "get_document_metadata":
+            self.last_tool_calls.append(name)
+            try:
+                return get_document_metadata(**arguments)
+            except TypeError as exc:
+                return {
+                    "success": False,
+                    "error": {"code": "invalid_arguments", "message": str(exc)},
+                }
+        if name == "read_knowledge_document":
+            self.last_tool_calls.append(name)
+            try:
+                return read_knowledge_document(**arguments)
+            except TypeError as exc:
+                return {
+                    "success": False,
+                    "error": {"code": "invalid_arguments", "message": str(exc)},
+                }
+        if name == "build_knowledge_index":
+            self.last_tool_calls.append(name)
+            try:
+                return build_knowledge_index(**arguments)
+            except TypeError as exc:
+                return {
+                    "success": False,
+                    "error": {"code": "invalid_arguments", "message": str(exc)},
+                }
+        if name == "get_knowledge_index_status":
+            self.last_tool_calls.append(name)
+            if arguments:
+                return {
+                    "success": False,
+                    "error": {
+                        "code": "invalid_arguments",
+                        "message": "get_knowledge_index_status 不接受参数。",
+                    },
+                }
+            return get_knowledge_index_status()
+        if name == "search_knowledge_base":
+            self.last_tool_calls.append(name)
+            try:
+                return search_knowledge_base(**arguments)
+            except TypeError as exc:
+                return {
+                    "success": False,
+                    "error": {"code": "invalid_arguments", "message": str(exc)},
+                }
+        if name == "create_project_state":
+            self.last_tool_calls.append(name)
+            try:
+                return create_project_state(**arguments)
+            except TypeError as exc:
+                return {
+                    "success": False,
+                    "error": {"code": "invalid_arguments", "message": str(exc)},
+                }
+        if name == "list_project_states":
+            self.last_tool_calls.append(name)
+            if arguments:
+                return {
+                    "success": False,
+                    "error": {
+                        "code": "invalid_arguments",
+                        "message": "list_project_states 不接受参数。",
+                    },
+                }
+            return list_project_states()
+        if name == "get_project_state":
+            self.last_tool_calls.append(name)
+            try:
+                return get_project_state(**arguments)
+            except TypeError as exc:
+                return {
+                    "success": False,
+                    "error": {"code": "invalid_arguments", "message": str(exc)},
+                }
+        if name == "select_project_state":
+            self.last_tool_calls.append(name)
+            try:
+                return select_project_state(**arguments)
+            except TypeError as exc:
+                return {
+                    "success": False,
+                    "error": {"code": "invalid_arguments", "message": str(exc)},
+                }
+        if name == "update_project_state":
+            self.last_tool_calls.append(name)
+            try:
+                return update_project_state(**arguments)
+            except TypeError as exc:
+                return {
+                    "success": False,
+                    "error": {"code": "invalid_arguments", "message": str(exc)},
+                }
+        if name == "archive_project_state":
+            self.last_tool_calls.append(name)
+            try:
+                return archive_project_state(**arguments)
+            except TypeError as exc:
+                return {
+                    "success": False,
+                    "error": {"code": "invalid_arguments", "message": str(exc)},
+                }
+        if name == "save_memory":
+            self.last_tool_calls.append(name)
+            try:
+                return save_memory(**arguments)
+            except TypeError as exc:
+                return {
+                    "success": False,
+                    "error": {"code": "invalid_arguments", "message": str(exc)},
+                }
+        if name == "list_memories":
+            self.last_tool_calls.append(name)
+            try:
+                return list_memories(**arguments)
+            except TypeError as exc:
+                return {
+                    "success": False,
+                    "error": {"code": "invalid_arguments", "message": str(exc)},
+                }
+        if name == "get_memory":
+            self.last_tool_calls.append(name)
+            try:
+                return get_memory(**arguments)
+            except TypeError as exc:
+                return {
+                    "success": False,
+                    "error": {"code": "invalid_arguments", "message": str(exc)},
+                }
+        if name == "search_memories":
+            self.last_tool_calls.append(name)
+            try:
+                return search_memories(**arguments)
+            except TypeError as exc:
+                return {
+                    "success": False,
+                    "error": {"code": "invalid_arguments", "message": str(exc)},
+                }
+        if name == "update_memory":
+            self.last_tool_calls.append(name)
+            try:
+                return update_memory(**arguments)
+            except TypeError as exc:
+                return {
+                    "success": False,
+                    "error": {"code": "invalid_arguments", "message": str(exc)},
+                }
+        if name == "archive_memory":
+            self.last_tool_calls.append(name)
+            try:
+                return archive_memory(**arguments)
+            except TypeError as exc:
+                return {
+                    "success": False,
+                    "error": {"code": "invalid_arguments", "message": str(exc)},
+                }
+        if name == "forget_memory":
+            self.last_tool_calls.append(name)
+            try:
+                return forget_memory(**arguments)
+            except TypeError as exc:
+                return {
+                    "success": False,
+                    "error": {"code": "invalid_arguments", "message": str(exc)},
+                }
+        if name == "generate_hr_report":
+            self.last_tool_calls.append(name)
+            try:
+                return generate_hr_report(**arguments)
+            except TypeError as exc:
+                return {
+                    "success": False,
+                    "error": {"code": "invalid_arguments", "message": str(exc)},
+                }
+        if name in ANALYSIS_FUNCTIONS:
+            file_path = arguments.pop("file_path", None)
+            sheet_name = arguments.pop("sheet_name", None)
+            if not isinstance(file_path, str) or not file_path.strip():
+                return {
+                    "success": False,
+                    "stage": "excel_reader",
+                    "error": {
+                        "code": "invalid_file_path",
+                        "message": "分析请求必须提供有效的 .xlsx 文件路径。",
+                    },
+                }
+
+            self.last_tool_calls.append("read_excel_metadata")
+            reader_result = read_excel_data(file_path, sheet_name=sheet_name)
+            if not reader_result.get("success"):
+                return {**reader_result, "stage": "excel_reader"}
+
+            self.last_tool_calls.append(name)
+            analysis_function = ANALYSIS_FUNCTIONS[name]
+            try:
+                analysis_result = analysis_function(
+                    data=reader_result["records"],
+                    **arguments,
+                )
+            except TypeError as exc:
+                analysis_result = {
+                    "success": False,
+                    "error": {"code": "invalid_arguments", "message": str(exc)},
+                }
+            return {
+                "success": bool(analysis_result.get("success")),
+                "stage": "analysis",
+                "source": {
+                    "file_name": reader_result["file_name"],
+                    "sheet_names": reader_result["sheet_names"],
+                    "selected_sheet": reader_result["selected_sheet"],
+                    "row_count": reader_result["row_count"],
+                    "columns": reader_result["columns"],
+                },
+                "analysis_tool": name,
+                "result": analysis_result,
+            }
+        return {"error": f"不支持的工具：{name or '未命名工具'}。"}
+
+    def _request(self, messages: list[dict[str, str]]) -> str:
+        input_items: list[Any] = list(messages)
+        response = self._create_response(input_items)
+        tool_call_count = 0
+
+        while tool_calls := self._tool_calls(response):
+            if tool_call_count + len(tool_calls) > MAX_TOOL_CALLS_PER_REQUEST:
+                raise AgentError("模型请求了过多工具调用，本次分析已停止，请重试。")
+
+            tool_outputs: list[dict[str, str]] = []
+            for call in tool_calls:
+                call_id = self._item_value(call, "call_id")
+                if not isinstance(call_id, str) or not call_id:
+                    raise AgentError("模型返回的工具调用缺少 call_id，请重试。")
+                result = self._execute_tool_call(call)
+                tool_outputs.append(
+                    {
+                        "type": "function_call_output",
+                        "call_id": call_id,
+                        "output": json.dumps(result, ensure_ascii=False),
+                    }
+                )
+
+            # Responses API expects its function-call items followed by matching
+            # outputs. Keeping them in the local input avoids server-side memory.
+            response_output = getattr(response, "output", None)
+            if not isinstance(response_output, list):
+                raise AgentError("模型返回了无效的工具调用响应，请重试。")
+            input_items = [*input_items, *response_output, *tool_outputs]
+            tool_call_count += len(tool_calls)
+            response = self._create_response(input_items)
+
+        result = getattr(response, "output_text", None)
+        if not isinstance(result, str) or not result.strip():
+            raise ResponseFormatError("模型未返回可用的文本内容，请重试。")
+        return result.strip()
+
+    def ask(self, question: str) -> str:
+        """Answer once and commit the turn only after a valid reply."""
+        if not question.strip():
+            raise AgentError("请输入企业人力资源管理问题。")
+
+        self.last_tool_calls = []
+        if boundary := management_boundary_message(question):
+            pending = [*self.history, {"role": "user", "content": question.strip()}]
+            self.history = [
+                *pending,
+                {"role": "assistant", "content": boundary},
+            ]
+            return boundary
+
+        pending = [*self.history, {"role": "user", "content": question.strip()}]
+        answer = self._request(pending)
+        if answer.startswith(OUT_OF_SCOPE_PREFIX):
+            boundary = answer[len(OUT_OF_SCOPE_PREFIX) :].strip()
+            if boundary == OUT_OF_SCOPE_MESSAGE:
+                self.history = [*pending, {"role": "assistant", "content": boundary}]
+                return boundary
+        if answer.startswith(EXCEL_ANALYSIS_UNSUPPORTED_PREFIX):
+            boundary = answer[len(EXCEL_ANALYSIS_UNSUPPORTED_PREFIX) :].strip()
+            if boundary in {
+                COMPENSATION_JUDGMENT_MESSAGE,
+                PERSONNEL_DECISION_MESSAGE,
+                EXCEL_ANALYSIS_UNSUPPORTED_MESSAGE,
+            }:
+                self.history = [*pending, {"role": "assistant", "content": boundary}]
+                return boundary
+        if answer.startswith(DATA_ANALYSIS_PREFIX):
+            analysis = answer[len(DATA_ANALYSIS_PREFIX) :].strip()
+            if not analysis:
+                raise ResponseFormatError("模型未返回数据分析内容，请重试。")
+            self.history = [*pending, {"role": "assistant", "content": analysis}]
+            return analysis
+        if answer.startswith(EXCEL_METADATA_PREFIX):
+            metadata = answer[len(EXCEL_METADATA_PREFIX) :].strip()
+            if not metadata:
+                raise ResponseFormatError("模型未返回 Excel 元数据内容，请重试。")
+            self.history = [*pending, {"role": "assistant", "content": metadata}]
+            return metadata
+        if answer.startswith(KNOWLEDGE_ANSWER_PREFIX):
+            knowledge_answer = answer[len(KNOWLEDGE_ANSWER_PREFIX) :].strip()
+            if not knowledge_answer:
+                raise ResponseFormatError("模型未返回知识库读取结果，请重试。")
+            self.history = [*pending, {"role": "assistant", "content": knowledge_answer}]
+            return knowledge_answer
+        if answer.startswith(RAG_ANSWER_PREFIX):
+            rag_answer = answer[len(RAG_ANSWER_PREFIX) :].strip()
+            if not rag_answer:
+                raise ResponseFormatError("模型未返回 RAG 检索回答，请重试。")
+            self.history = [*pending, {"role": "assistant", "content": rag_answer}]
+            return rag_answer
+        if answer.startswith(PROJECT_STATE_PREFIX):
+            state_answer = answer[len(PROJECT_STATE_PREFIX) :].strip()
+            if not state_answer:
+                raise ResponseFormatError("模型未返回项目 State 结果，请重试。")
+            self.history = [*pending, {"role": "assistant", "content": state_answer}]
+            return state_answer
+        if answer.startswith(MEMORY_PREFIX):
+            memory_answer = answer[len(MEMORY_PREFIX) :].strip()
+            if not memory_answer:
+                raise ResponseFormatError("模型未返回 Memory 结果，请重试。")
+            self.history = [*pending, {"role": "assistant", "content": memory_answer}]
+            return memory_answer
+        if answer.startswith(REPORT_PREFIX):
+            report_answer = answer[len(REPORT_PREFIX) :].strip()
+            if not report_answer:
+                raise ResponseFormatError("模型未返回报告生成结果，请重试。")
+            self.history = [*pending, {"role": "assistant", "content": report_answer}]
+            return report_answer
+        try:
+            validate_analysis(answer)
+        except ResponseFormatError:
+            # One repair attempt avoids showing an incomplete analysis to the user.
+            repair = [
+                *pending,
+                {"role": "assistant", "content": answer},
+                {"role": "user", "content": FORMAT_REPAIR_INSTRUCTIONS},
+            ]
+            answer = self._request(repair)
+            validate_analysis(answer)
+
+        self.history = [*pending, {"role": "assistant", "content": answer}]
+        return answer

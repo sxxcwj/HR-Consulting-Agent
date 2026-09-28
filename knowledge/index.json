@@ -1,0 +1,89 @@
+{
+  "documents": [
+    {
+      "document_id": "DOC-DA8E8F602D34",
+      "file_name": "01_员工手册.md",
+      "file_type": "md",
+      "title": "01_员工手册",
+      "character_count": 803,
+      "created_at": "2026-09-26T07:17:59.025051+00:00",
+      "source_path": "/Users/wangjian/Documents/ChatGPT/hr_agent/knowledge/documents/01_员工手册.md",
+      "metadata": {
+        "file_size": 2289,
+        "content_sha256": "da8e8f602d3453cdfbc4beb021a33f943eecbe3dc7173413ade0bcbc07e493d5",
+        "modified_at": "2026-09-26T07:13:57.046346+00:00",
+        "parser": "utf-8-text"
+      },
+      "status": "ready",
+      "document_family": "01员工手册"
+    },
+    {
+      "document_id": "DOC-718E7FF3DE1E",
+      "file_name": "02_薪酬管理制度.md",
+      "file_type": "md",
+      "title": "02_薪酬管理制度",
+      "character_count": 851,
+      "created_at": "2026-09-26T07:17:59.026939+00:00",
+      "source_path": "/Users/wangjian/Documents/ChatGPT/hr_agent/knowledge/documents/02_薪酬管理制度.md",
+      "metadata": {
+        "file_size": 2425,
+        "content_sha256": "718e7ff3de1e53d720e6543999dfa2a65fc78ab029345d4453b47ebf85f23f49",
+        "modified_at": "2026-09-26T07:13:57.046560+00:00",
+        "parser": "utf-8-text"
+      },
+      "status": "ready",
+      "document_family": "02薪酬管理制度"
+    },
+    {
+      "document_id": "DOC-814C5A1FE9B3",
+      "file_name": "03_绩效管理制度.md",
+      "file_type": "md",
+      "title": "03_绩效管理制度",
+      "character_count": 748,
+      "created_at": "2026-09-26T07:17:59.027834+00:00",
+      "source_path": "/Users/wangjian/Documents/ChatGPT/hr_agent/knowledge/documents/03_绩效管理制度.md",
+      "metadata": {
+        "file_size": 2112,
+        "content_sha256": "814c5a1fe9b3d33e28846865e9c8f2a0a95e90fe9e057b111f47b26fbd253d93",
+        "modified_at": "2026-09-26T07:13:57.046798+00:00",
+        "parser": "utf-8-text"
+      },
+      "status": "ready",
+      "document_family": "03绩效管理制度"
+    },
+    {
+      "document_id": "DOC-F74783526AF8",
+      "file_name": "04_招聘管理办法.md",
+      "file_type": "md",
+      "title": "04_招聘管理办法",
+      "character_count": 731,
+      "created_at": "2026-09-26T07:17:59.028701+00:00",
+      "source_path": "/Users/wangjian/Documents/ChatGPT/hr_agent/knowledge/documents/04_招聘管理办法.md",
+      "metadata": {
+        "file_size": 2073,
+        "content_sha256": "f74783526af8cbfbe3230eaf20ed77fb79a2ba555c97197718d21bb75c9f0bd2",
+        "modified_at": "2026-09-26T07:13:57.046972+00:00",
+        "parser": "utf-8-text"
+      },
+      "status": "ready",
+      "document_family": "04招聘管理办法"
+    },
+    {
+      "document_id": "DOC-DDDC6EB47206",
+      "file_name": "05_销售经理岗位说明书.md",
+      "file_type": "md",
+      "title": "05_销售经理岗位说明书",
+      "character_count": 808,
+      "created_at": "2026-09-26T07:17:59.029670+00:00",
+      "source_path": "/Users/wangjian/Documents/ChatGPT/hr_agent/knowledge/documents/05_销售经理岗位说明书.md",
+      "metadata": {
+        "file_size": 2304,
+        "content_sha256": "dddc6eb472062b76ba14654bd7bd0c75847cee39a90d7800a9bb9e503aa6e413",
+        "modified_at": "2026-09-26T07:13:57.047112+00:00",
+        "parser": "utf-8-text"
+      },
+      "status": "ready",
+      "document_family": "05销售经理岗位说明书"
+    }
+  ]
+}

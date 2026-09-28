@@ -1,0 +1,15 @@
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+.DS_Store
+knowledge/vector_index.sqlite3
+knowledge/vector_index.sqlite3-shm
+knowledge/vector_index.sqlite3-wal
+state/projects.json
+state/projects.json.tmp
+state/memories.json
+state/memories.json.tmp
+reports/generated/*.md
+reports/generated/*.tmp
