@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from src.security import ensure_private_directory, ensure_private_file
+
 from .chunking import DocumentChunk
 
 
@@ -23,8 +25,9 @@ class SQLiteVectorStore:
         self.path = Path(path).expanduser()
 
     def _connect(self) -> sqlite3.Connection:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
+        ensure_private_directory(self.path.parent)
         connection = sqlite3.connect(self.path)
+        ensure_private_file(self.path)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")
         connection.executescript(

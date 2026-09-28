@@ -9,7 +9,8 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from src.knowledge.knowledge_reader import redact_sensitive_text
+from src.config import APPLICATION_ROOT
+from src.security import atomic_write_text, detect_sensitive_labels
 
 from .models import (
     MEMORY_CATEGORIES,
@@ -21,17 +22,8 @@ from .models import (
 )
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_MEMORY_ROOT = PROJECT_ROOT / "state"
+DEFAULT_MEMORY_ROOT = APPLICATION_ROOT / "state"
 MEMORY_SCHEMA_VERSION = 1
-SECRET_PATTERNS = (
-    re.compile(r"\bsk-[A-Za-z0-9_-]{12,}\b"),
-    re.compile(
-        r"(?:api[ _-]?key|access[ _-]?token|password|密码|密钥|令牌)"
-        r"\s*[:=：]\s*[^\s,，;；]{6,}",
-        re.IGNORECASE,
-    ),
-)
 
 
 class MemoryStoreError(RuntimeError):
@@ -49,14 +41,6 @@ def _error(code: str, message: str, **details: Any) -> dict[str, Any]:
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
-
-
-def _sensitive_labels(content: str) -> list[str]:
-    _, detected = redact_sensitive_text(content)
-    labels = list(detected)
-    if any(pattern.search(content) for pattern in SECRET_PATTERNS):
-        labels.append("密钥或凭据")
-    return sorted(set(labels))
 
 
 def _search_terms(query: str) -> list[str]:
@@ -106,14 +90,11 @@ class MemoryStore:
         return {"schema_version": MEMORY_SCHEMA_VERSION, "memories": memories}
 
     def _write(self, value: dict[str, Any]) -> None:
-        self.root.mkdir(parents=True, exist_ok=True)
-        temporary = self.path.with_suffix(".json.tmp")
         try:
-            temporary.write_text(
+            atomic_write_text(
+                self.path,
                 json.dumps(value, ensure_ascii=False, indent=2) + "\n",
-                encoding="utf-8",
             )
-            temporary.replace(self.path)
         except OSError as exc:
             raise MemoryStoreError(f"Memory 写入失败：{type(exc).__name__}。") from exc
 
@@ -134,7 +115,7 @@ class MemoryStore:
             normalized_content = validate_text(content, "content", required=True)
         except MemoryValidationError as exc:
             return _error("invalid_memory", str(exc))
-        labels = _sensitive_labels(normalized_content)
+        labels = detect_sensitive_labels(normalized_content)
         if labels:
             return _error(
                 "sensitive_memory_content",
@@ -274,7 +255,7 @@ class MemoryStore:
                 updated["category"] = validate_category(category)
             if content is not None:
                 normalized_content = validate_text(content, "content", required=True)
-                labels = _sensitive_labels(normalized_content)
+                labels = detect_sensitive_labels(normalized_content)
                 if labels:
                     return _error(
                         "sensitive_memory_content",

@@ -8,7 +8,8 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from src.knowledge.knowledge_reader import redact_sensitive_text
+from src.config import APPLICATION_ROOT
+from src.security import atomic_write_text, detect_sensitive_labels
 
 from .models import (
     PROJECT_STAGES,
@@ -19,8 +20,7 @@ from .models import (
 )
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_STATE_ROOT = PROJECT_ROOT / "state"
+DEFAULT_STATE_ROOT = APPLICATION_ROOT / "state"
 STATE_SCHEMA_VERSION = 1
 
 
@@ -39,20 +39,6 @@ def _error(code: str, message: str, **details: Any) -> dict[str, Any]:
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
-
-
-def _sensitive_labels(value: Any) -> list[str]:
-    labels: list[str] = []
-    if isinstance(value, str):
-        _, detected = redact_sensitive_text(value)
-        labels.extend(detected)
-    elif isinstance(value, list):
-        for item in value:
-            labels.extend(_sensitive_labels(item))
-    elif isinstance(value, dict):
-        for item in value.values():
-            labels.extend(_sensitive_labels(item))
-    return sorted(set(labels))
 
 
 def _merge_unique(existing: list[str], additions: list[str]) -> list[str]:
@@ -110,14 +96,11 @@ class ProjectStateStore:
         return {**value, "projects": projects}
 
     def _write(self, value: dict[str, Any]) -> None:
-        self.root.mkdir(parents=True, exist_ok=True)
-        temporary = self.path.with_suffix(".json.tmp")
         try:
-            temporary.write_text(
+            atomic_write_text(
+                self.path,
                 json.dumps(value, ensure_ascii=False, indent=2) + "\n",
-                encoding="utf-8",
             )
-            temporary.replace(self.path)
         except OSError as exc:
             raise ProjectStateStoreError(
                 f"项目 State 写入失败：{type(exc).__name__}。"
@@ -170,7 +153,7 @@ class ProjectStateStore:
             )
         except ProjectStateValidationError as exc:
             return _error("invalid_project", str(exc))
-        labels = _sensitive_labels(
+        labels = detect_sensitive_labels(
             [template.name, template.objective, template.organization_context]
         )
         if labels:
@@ -240,7 +223,18 @@ class ProjectStateStore:
         except ProjectStateStoreError as exc:
             return _error("state_store_error", str(exc))
         except ProjectStateValidationError as exc:
-            return _error("project_not_found", str(exc))
+            return _error(
+                "project_not_found",
+                str(exc),
+                available_projects=[
+                    {
+                        "project_id": item["project_id"],
+                        "name": item["name"],
+                        "status": item["status"],
+                    }
+                    for item in data.get("projects", [])
+                ],
+            )
         return {
             "success": True,
             "project": project,
@@ -291,7 +285,7 @@ class ProjectStateStore:
         }
         if all(value is None for value in changes.values()):
             return _error("no_changes", "没有提供任何项目 State 变更。")
-        labels = _sensitive_labels(changes)
+        labels = detect_sensitive_labels(changes)
         if labels:
             return _error(
                 "sensitive_state_content",

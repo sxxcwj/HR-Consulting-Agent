@@ -118,10 +118,21 @@ def test_archive_is_recoverable_but_not_selectable_or_updatable(tmp_path) -> Non
 
 
 def test_no_active_project_is_explicit(tmp_path) -> None:
-    result = ProjectStateStore(tmp_path / "state").get_project()
+    store = ProjectStateStore(tmp_path / "state")
+    project_id = _create(store)["project"]["project_id"]
+    store.archive_project(project_id=project_id)
+
+    result = store.get_project()
     assert result["success"] is False
     assert result["error"]["code"] == "project_not_found"
     assert "创建或选择" in result["error"]["message"]
+    assert result["available_projects"] == [
+        {
+            "project_id": project_id,
+            "name": "销售离职诊断",
+            "status": "archived",
+        }
+    ]
 
 
 def test_empty_explicit_project_id_does_not_fall_back_to_active(tmp_path) -> None:

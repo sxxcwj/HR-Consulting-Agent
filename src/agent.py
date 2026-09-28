@@ -72,7 +72,7 @@ HEADING_PATTERN = re.compile(r"^# (.+?)\s*$", re.MULTILINE)
 DEFAULT_MODEL = "deepseek-flash"
 DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 OUT_OF_SCOPE_PREFIX = "OUT_OF_SCOPE:"
-OUT_OF_SCOPE_MESSAGE = "此请求不属于 HR Consultant V0.9 的企业 HR 管理分析范围。"
+OUT_OF_SCOPE_MESSAGE = "此请求不属于 HR Consultant V1.0 的企业 HR 管理分析范围。"
 EXCEL_METADATA_PREFIX = "EXCEL_METADATA:"
 EXCEL_ANALYSIS_UNSUPPORTED_PREFIX = "EXCEL_ANALYSIS_UNSUPPORTED:"
 DATA_ANALYSIS_PREFIX = "DATA_ANALYSIS:"
@@ -104,6 +104,35 @@ REGISTERED_TOOLS = [
     *MEMORY_TOOLS,
     *REPORT_TOOLS,
 ]
+SIMPLE_TOOL_HANDLER_NAMES = {
+    "read_excel_metadata": "read_excel_metadata",
+    "register_knowledge_document": "register_document",
+    "list_knowledge_documents": "list_documents",
+    "get_document_metadata": "get_document_metadata",
+    "read_knowledge_document": "read_knowledge_document",
+    "build_knowledge_index": "build_knowledge_index",
+    "get_knowledge_index_status": "get_knowledge_index_status",
+    "search_knowledge_base": "search_knowledge_base",
+    "create_project_state": "create_project_state",
+    "list_project_states": "list_project_states",
+    "get_project_state": "get_project_state",
+    "select_project_state": "select_project_state",
+    "update_project_state": "update_project_state",
+    "archive_project_state": "archive_project_state",
+    "save_memory": "save_memory",
+    "list_memories": "list_memories",
+    "get_memory": "get_memory",
+    "search_memories": "search_memories",
+    "update_memory": "update_memory",
+    "archive_memory": "archive_memory",
+    "forget_memory": "forget_memory",
+    "generate_hr_report": "generate_hr_report",
+}
+NO_ARGUMENT_TOOLS = {
+    "list_knowledge_documents",
+    "get_knowledge_index_status",
+    "list_project_states",
+}
 EXCEL_ANALYSIS_PATTERNS = (
     re.compile(r"哪些员工.*(?:工资|薪酬).*(?:异常|离群)"),
     re.compile(r"(?:绩效.*工资|工资.*绩效).*(?:关系|相关)"),
@@ -246,205 +275,27 @@ class HRConsultant:
                 return calculate_turnover_rate(**arguments)
             except (TurnoverRateInputError, TypeError) as exc:
                 return {"error": str(exc)}
-        if name == "read_excel_metadata":
+        if name in SIMPLE_TOOL_HANDLER_NAMES:
             self.last_tool_calls.append(name)
-            try:
-                return read_excel_metadata(**arguments)
-            except TypeError as exc:
-                return {
-                    "success": False,
-                    "error": {"code": "invalid_arguments", "message": str(exc)},
-                }
-        if name == "register_knowledge_document":
-            self.last_tool_calls.append(name)
-            try:
-                return register_document(**arguments)
-            except TypeError as exc:
-                return {
-                    "success": False,
-                    "error": {"code": "invalid_arguments", "message": str(exc)},
-                }
-        if name == "list_knowledge_documents":
-            self.last_tool_calls.append(name)
-            if arguments:
+            if name in NO_ARGUMENT_TOOLS and arguments:
                 return {
                     "success": False,
                     "error": {
                         "code": "invalid_arguments",
-                        "message": "list_knowledge_documents 不接受参数。",
+                        "message": f"{name} 不接受参数。",
                     },
                 }
-            return list_documents()
-        if name == "get_document_metadata":
-            self.last_tool_calls.append(name)
-            try:
-                return get_document_metadata(**arguments)
-            except TypeError as exc:
-                return {
-                    "success": False,
-                    "error": {"code": "invalid_arguments", "message": str(exc)},
-                }
-        if name == "read_knowledge_document":
-            self.last_tool_calls.append(name)
-            try:
-                return read_knowledge_document(**arguments)
-            except TypeError as exc:
-                return {
-                    "success": False,
-                    "error": {"code": "invalid_arguments", "message": str(exc)},
-                }
-        if name == "build_knowledge_index":
-            self.last_tool_calls.append(name)
-            try:
-                return build_knowledge_index(**arguments)
-            except TypeError as exc:
-                return {
-                    "success": False,
-                    "error": {"code": "invalid_arguments", "message": str(exc)},
-                }
-        if name == "get_knowledge_index_status":
-            self.last_tool_calls.append(name)
-            if arguments:
+            handler = globals().get(SIMPLE_TOOL_HANDLER_NAMES[name])
+            if not callable(handler):
                 return {
                     "success": False,
                     "error": {
-                        "code": "invalid_arguments",
-                        "message": "get_knowledge_index_status 不接受参数。",
+                        "code": "tool_handler_unavailable",
+                        "message": f"{name} 的执行器不可用。",
                     },
                 }
-            return get_knowledge_index_status()
-        if name == "search_knowledge_base":
-            self.last_tool_calls.append(name)
             try:
-                return search_knowledge_base(**arguments)
-            except TypeError as exc:
-                return {
-                    "success": False,
-                    "error": {"code": "invalid_arguments", "message": str(exc)},
-                }
-        if name == "create_project_state":
-            self.last_tool_calls.append(name)
-            try:
-                return create_project_state(**arguments)
-            except TypeError as exc:
-                return {
-                    "success": False,
-                    "error": {"code": "invalid_arguments", "message": str(exc)},
-                }
-        if name == "list_project_states":
-            self.last_tool_calls.append(name)
-            if arguments:
-                return {
-                    "success": False,
-                    "error": {
-                        "code": "invalid_arguments",
-                        "message": "list_project_states 不接受参数。",
-                    },
-                }
-            return list_project_states()
-        if name == "get_project_state":
-            self.last_tool_calls.append(name)
-            try:
-                return get_project_state(**arguments)
-            except TypeError as exc:
-                return {
-                    "success": False,
-                    "error": {"code": "invalid_arguments", "message": str(exc)},
-                }
-        if name == "select_project_state":
-            self.last_tool_calls.append(name)
-            try:
-                return select_project_state(**arguments)
-            except TypeError as exc:
-                return {
-                    "success": False,
-                    "error": {"code": "invalid_arguments", "message": str(exc)},
-                }
-        if name == "update_project_state":
-            self.last_tool_calls.append(name)
-            try:
-                return update_project_state(**arguments)
-            except TypeError as exc:
-                return {
-                    "success": False,
-                    "error": {"code": "invalid_arguments", "message": str(exc)},
-                }
-        if name == "archive_project_state":
-            self.last_tool_calls.append(name)
-            try:
-                return archive_project_state(**arguments)
-            except TypeError as exc:
-                return {
-                    "success": False,
-                    "error": {"code": "invalid_arguments", "message": str(exc)},
-                }
-        if name == "save_memory":
-            self.last_tool_calls.append(name)
-            try:
-                return save_memory(**arguments)
-            except TypeError as exc:
-                return {
-                    "success": False,
-                    "error": {"code": "invalid_arguments", "message": str(exc)},
-                }
-        if name == "list_memories":
-            self.last_tool_calls.append(name)
-            try:
-                return list_memories(**arguments)
-            except TypeError as exc:
-                return {
-                    "success": False,
-                    "error": {"code": "invalid_arguments", "message": str(exc)},
-                }
-        if name == "get_memory":
-            self.last_tool_calls.append(name)
-            try:
-                return get_memory(**arguments)
-            except TypeError as exc:
-                return {
-                    "success": False,
-                    "error": {"code": "invalid_arguments", "message": str(exc)},
-                }
-        if name == "search_memories":
-            self.last_tool_calls.append(name)
-            try:
-                return search_memories(**arguments)
-            except TypeError as exc:
-                return {
-                    "success": False,
-                    "error": {"code": "invalid_arguments", "message": str(exc)},
-                }
-        if name == "update_memory":
-            self.last_tool_calls.append(name)
-            try:
-                return update_memory(**arguments)
-            except TypeError as exc:
-                return {
-                    "success": False,
-                    "error": {"code": "invalid_arguments", "message": str(exc)},
-                }
-        if name == "archive_memory":
-            self.last_tool_calls.append(name)
-            try:
-                return archive_memory(**arguments)
-            except TypeError as exc:
-                return {
-                    "success": False,
-                    "error": {"code": "invalid_arguments", "message": str(exc)},
-                }
-        if name == "forget_memory":
-            self.last_tool_calls.append(name)
-            try:
-                return forget_memory(**arguments)
-            except TypeError as exc:
-                return {
-                    "success": False,
-                    "error": {"code": "invalid_arguments", "message": str(exc)},
-                }
-        if name == "generate_hr_report":
-            self.last_tool_calls.append(name)
-            try:
-                return generate_hr_report(**arguments)
+                return handler(**arguments)
             except TypeError as exc:
                 return {
                     "success": False,

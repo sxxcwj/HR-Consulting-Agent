@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import re
 from typing import Any
+
+from src.security import redact_sensitive_text
 
 from .knowledge_registry import KnowledgeRegistry
 from .knowledge_registry import REGISTER_KNOWLEDGE_DOCUMENT_TOOL
@@ -20,43 +21,6 @@ def _error(code: str, message: str, **details: Any) -> dict[str, Any]:
     }
     result.update(details)
     return result
-
-
-def redact_sensitive_text(text: str) -> tuple[str, list[str]]:
-    """Apply minimum-necessary masking before document text reaches the model."""
-    detected: list[str] = []
-    patterns = (
-        ("身份证号", re.compile(r"(?<!\d)\d{17}[\dXx](?!\d)"), "[身份证号已脱敏]"),
-        ("手机号", re.compile(r"(?<!\d)1[3-9]\d{9}(?!\d)"), "[手机号已脱敏]"),
-        (
-            "邮箱",
-            re.compile(r"(?<![\w.])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![\w.])"),
-            "[邮箱已脱敏]",
-        ),
-        (
-            "姓名",
-            re.compile(r"(?P<label>(?:员工)?姓名\s*[：:])\s*[\u4e00-\u9fff·]{2,12}"),
-            r"\g<label>[姓名已脱敏]",
-        ),
-        (
-            "地址",
-            re.compile(r"(?P<label>(?:家庭|居住|联系)?地址\s*[：:])[^\n，,；;]{4,100}"),
-            r"\g<label>[地址已脱敏]",
-        ),
-        (
-            "高度敏感记录",
-            re.compile(
-                r"(?P<label>(?:医疗信息|个人薪酬|处分记录|投诉记录)\s*[：:])[^\n]{1,300}"
-            ),
-            r"\g<label>[敏感内容已脱敏]",
-        ),
-    )
-    result = text
-    for label, pattern, replacement in patterns:
-        result, count = pattern.subn(replacement, result)
-        if count:
-            detected.append(label)
-    return result, detected
 
 
 def read_document(

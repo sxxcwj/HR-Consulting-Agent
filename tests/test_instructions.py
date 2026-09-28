@@ -106,6 +106,8 @@ def test_project_state_is_explicit_and_source_aware() -> None:
         "不保存完整对话",
         "只是引用",
         "归档项目不能更新",
+        "只能选择 active 项目",
+        "archived 项目可按准确 project_id 读取",
         "员工级敏感信息",
     ):
         assert phrase in AGENT_INSTRUCTIONS

@@ -7,11 +7,13 @@ import re
 from pathlib import Path
 from typing import Any
 
+from src.config import APPLICATION_ROOT
+from src.security import atomic_write_text, ensure_private_directory
+
 from .document_loader import Document, load_document
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_KNOWLEDGE_ROOT = PROJECT_ROOT / "knowledge"
+DEFAULT_KNOWLEDGE_ROOT = APPLICATION_ROOT / "knowledge"
 
 
 def _error(code: str, message: str, **details: Any) -> dict[str, Any]:
@@ -44,8 +46,9 @@ class KnowledgeRegistry:
         self.documents_dir = self.root / "documents"
         self.parsed_dir = self.root / "parsed"
         self.index_path = self.root / "index.json"
-        self.documents_dir.mkdir(parents=True, exist_ok=True)
-        self.parsed_dir.mkdir(parents=True, exist_ok=True)
+        ensure_private_directory(self.root)
+        ensure_private_directory(self.documents_dir)
+        ensure_private_directory(self.parsed_dir)
         if not self.index_path.exists():
             self._write_index({"documents": []})
 
@@ -59,13 +62,10 @@ class KnowledgeRegistry:
         return value
 
     def _write_index(self, value: dict[str, Any]) -> None:
-        self.root.mkdir(parents=True, exist_ok=True)
-        temporary = self.index_path.with_suffix(".json.tmp")
-        temporary.write_text(
+        atomic_write_text(
+            self.index_path,
             json.dumps(value, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
         )
-        temporary.replace(self.index_path)
 
     @staticmethod
     def _metadata(document: Document) -> dict[str, Any]:
@@ -120,9 +120,9 @@ class KnowledgeRegistry:
         candidates = [*index["documents"], metadata]
         try:
             parsed_path = self.parsed_dir / f"{document.document_id}.json"
-            parsed_path.write_text(
+            atomic_write_text(
+                parsed_path,
                 json.dumps(document.to_dict(), ensure_ascii=False, indent=2) + "\n",
-                encoding="utf-8",
             )
             self._write_index({"documents": candidates})
         except OSError as exc:

@@ -1,6 +1,6 @@
-# HR Consultant V0.9
+# HR Consultant V1.0 Release Candidate
 
-面向企业组织与人力资源问题的单 Agent 命令行顾问。运行环境为 Python 3.11 或更新版本。V0.9 保留既有 HR 问答、Excel 分析、企业文件读取、本地 RAG、项目 State 和显式长期 Memory，并新增基于已取得证据的 Markdown 报告生成。
+面向企业组织与人力资源问题的单 Agent 命令行顾问。运行环境为 Python 3.11 或更新版本。V1.0 不新增业务能力，完整保留 V0.1—V0.9 的 HR 问答、计算、Excel 分析、企业文件读取、本地 RAG、项目 State、显式长期 Memory 和基于证据的 Markdown 报告生成，并补齐安装、权限、测试、评测和发布加固。
 
 ## 安装
 
@@ -15,8 +15,10 @@ cd /Users/wangjian/Documents/ChatGPT/hr_agent
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements.txt
+python -m pip install ".[dev]"
 ```
+
+开发与跨版本安装以 `pyproject.toml` 为准；`requirements-lock.txt` 记录本次 V1.0 RC 在 macOS / Python 3.13 上实际验证的精确依赖版本。若需要完全复现该环境，可在新虚拟环境运行 `python -m pip install -r requirements-lock.txt` 后再运行 `python -m pip install . --no-deps`。
 
 从 `.env.example` 查看变量名称。可在运行终端设置 `DEEPSEEK_API_KEY`，也可把 `.env.example` 复制为项目根目录下的 `.env`，仅在 `.env` 中填入真实密钥，并执行 `chmod 600 .env` 限制本机读取权限。`.env` 已被 Git 忽略；不要把密钥写入 `.env.example` 或提交到仓库。可选用 `DEEPSEEK_MODEL` 指定模型，默认使用 `deepseek-flash`。已有环境变量优先于 `.env` 中的值。
 
@@ -24,7 +26,7 @@ python -m pip install -r requirements.txt
 
 ```bash
 export DEEPSEEK_API_KEY='YOUR_KEY'
-python -m src.main
+hragent
 ```
 
 将占位符替换为未在聊天或仓库公开的 DeepSeek API 密钥。如果选择 `.env` 方式，直接运行 `python -m src.main` 即可。企业问题文本会发送至 DeepSeek API。完整对话历史只在当前进程内保留；退出程序后不会保存聊天记录。只有用户明确要求写入的项目 State 或长期 Memory 会保存在本地 JSON 文件中。
@@ -32,10 +34,30 @@ python -m src.main
 ## 运行
 
 ```bash
+hragent
+```
+
+也可以继续使用兼容入口：
+
+```bash
 python -m src.main
 ```
 
-程序会提示“请输入企业人力资源管理问题：”。在同一进程中继续输入可补充信息；输入 `退出` 或 `exit` 结束会话。V0.9 不自动保存聊天记录、提取记忆或生成报告；只有用户明确创建或更新的项目 State、明确要求保存的长期 Memory，以及明确要求生成的 Markdown 报告会跨进程保留。文件 Registry 保存已登记文档的 metadata 和解析文本，RAG 索引只保存可重建的本地片段与向量。
+程序会提示“请输入企业人力资源管理问题：”。在同一进程中继续输入可补充信息；输入 `退出` 或 `exit` 结束会话。V1.0 不自动保存聊天记录、提取记忆或生成报告；只有用户明确创建或更新的项目 State、明确要求保存的长期 Memory，以及明确要求生成的 Markdown 报告会跨进程保留。文件 Registry 保存已登记文档的 metadata 和解析文本，RAG 索引只保存可重建的本地片段与向量。
+
+运行数据根目录优先使用环境变量 `HR_AGENT_HOME`；未设置时，如果当前目录或源码目录是本项目根目录，则使用该项目；安装后从其他目录运行时，回退到当前用户的 `~/.hragent` 私有目录。要让任意目录中的 `hragent` 继续使用本项目现有知识库、State、Memory 和报告，请在 shell 配置中设置：
+
+```bash
+export HR_AGENT_HOME='/Users/wangjian/Documents/ChatGPT/hr_agent'
+```
+
+`HR_AGENT_HOME` 会改变所有本地运行数据和 `.env` 的查找位置，应指向你明确控制的专用目录。
+
+### API 数据边界
+
+Agent 使用 OpenAI 官方 Python SDK 连接 DeepSeek 的 OpenAI 兼容接口。每轮请求会把系统 instructions、本轮问题、当前进程中的成功对话历史、模型请求的 Function Tool 定义，以及实际工具返回结果发送给 DeepSeek。需要文件、RAG、Excel、State、Memory 或报告上游证据时，本地工具先执行，随后相关的脱敏文本片段、结构化统计、项目上下文或记忆内容会作为 Tool 结果发送给 DeepSeek，供其解释和继续编排。程序不会把本地文件作为附件自动上传，但被工具读取并返回的内容可能进入 API 请求；因此不要处理未经授权的真实员工敏感数据。API 的存储、留存和合规政策由所使用的 DeepSeek 服务与账户约定决定。
+
+本地 `.env`、State、Memory、解析文件、向量索引和生成报告应只允许当前系统用户访问。程序新建这些目录和文件时在 POSIX 系统使用目录 `0700`、文件 `0600`；从旧版本升级后也建议运行 `chmod -R go-rwx state knowledge/parsed reports/generated`，并单独保护企业原始文件目录。该权限模型是单机单用户保护，不是企业级访问控制或加密存储。
 
 当问题包含离职人数和平均员工人数，或者包含离职人数、期初人数与期末人数，并要求计算离职率时，Agent 会调用本地计算工具。例如：
 
@@ -197,4 +219,8 @@ python -m pytest -q
 
 默认测试只运行离线测试，在线测试会被排除，以免意外产生 API 请求。真实 API 测试需要在执行环境中设置 `DEEPSEEK_API_KEY`；测试命令不会自动加载 `.env`。单元测试使用模拟客户端，不会发起网络请求。
 
-配置密钥后可运行 `python -m pytest -q -m live`，检查真实连接与固定验收案例。V0.9 报告测试位于 `tests/test_report_*.py`；V0.8 Memory、V0.7 State、V0.6 RAG、V0.5 文件与 V0.4 分析测试继续保留。`evals/acceptance_cases.json` 是 12 个 V0.1 正式验收案例，`evals/test_cases.json` 是补充人工评测案例。
+配置密钥后可运行 `python -m pytest -q -m live`，检查真实连接与固定验收案例。V0.9 报告测试位于 `tests/test_report_*.py`；V0.8 Memory、V0.7 State、V0.6 RAG、V0.5 文件与 V0.4 分析测试继续保留。`evals/acceptance_cases.json` 是 12 个 V0.1 正式验收案例，`evals/test_cases.json` 是补充人工评测案例，`evals/v1_capability_cases.json` 则覆盖 V0.2—V0.9 的工具能力契约。GitHub Actions 会在 Python 3.11、3.12 和 3.13 上运行离线测试；真实 API 测试不进入 CI，避免使用密钥和产生费用。
+
+## V1.0 发布边界
+
+V1.0 RC 是本地单用户试点版本，不等于已经完成生产级安全、法务和隐私合规认证。它没有数据库、Web UI、多 Agent、MCP、云同步、多人权限、审计服务、加密密钥管理或自动人事决策。正式处理真实员工数据前，应由企业确认数据授权、最小化范围、DeepSeek API 数据政策、保存期限、设备权限和删除流程。发布检查见 `RELEASE_V1.0.md`，匿名化试点方案见 `PILOT_PLAN.md`。

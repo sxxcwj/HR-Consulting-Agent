@@ -8,11 +8,11 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from src.knowledge.knowledge_reader import redact_sensitive_text
+from src.config import APPLICATION_ROOT
+from src.security import atomic_write_text, detect_sensitive_labels
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_REPORT_ROOT = PROJECT_ROOT / "reports" / "generated"
+DEFAULT_REPORT_ROOT = APPLICATION_ROOT / "reports" / "generated"
 SOURCE_TYPES = (
     "user_input",
     "project_state",
@@ -21,14 +21,6 @@ SOURCE_TYPES = (
     "rag",
     "excel_analysis",
     "tool_result",
-)
-SECRET_PATTERNS = (
-    re.compile(r"\bsk-[A-Za-z0-9_-]{12,}\b"),
-    re.compile(
-        r"(?:api[ _-]?key|access[ _-]?token|password|密码|密钥|令牌)"
-        r"\s*[:=：]\s*[^\s,，;；]{6,}",
-        re.IGNORECASE,
-    ),
 )
 
 
@@ -104,22 +96,6 @@ def _sources(value: Any) -> list[dict[str, str]]:
     return result
 
 
-def _sensitive_labels(value: Any) -> list[str]:
-    labels: list[str] = []
-    if isinstance(value, str):
-        _, detected = redact_sensitive_text(value)
-        labels.extend(detected)
-        if any(pattern.search(value) for pattern in SECRET_PATTERNS):
-            labels.append("密钥或凭据")
-    elif isinstance(value, list):
-        for item in value:
-            labels.extend(_sensitive_labels(item))
-    elif isinstance(value, dict):
-        for item in value.values():
-            labels.extend(_sensitive_labels(item))
-    return sorted(set(labels))
-
-
 def _slug(title: str) -> str:
     slug = re.sub(r"[^\w\u4e00-\u9fff]+", "-", title, flags=re.UNICODE)
     slug = slug.strip("-_")[:60]
@@ -174,7 +150,7 @@ class ReportGenerator:
         except ReportValidationError as exc:
             return _error("invalid_report", str(exc))
 
-        sensitive = _sensitive_labels(normalized)
+        sensitive = detect_sensitive_labels(normalized)
         if sensitive:
             return _error(
                 "sensitive_report_content",
@@ -187,7 +163,6 @@ class ReportGenerator:
         report_id = f"RPT-{stamp}-{uuid4().hex[:8].upper()}"
         file_name = f"{report_id}_{_slug(normalized['title'])}.md"
         file_path = self.root / file_name
-        temporary = file_path.with_suffix(".md.tmp")
 
         sections: list[tuple[str, list[str]]] = [
             ("问题判断", normalized["problem_assessment"]),
@@ -237,11 +212,9 @@ class ReportGenerator:
         content = "\n".join(lines).rstrip() + "\n"
 
         try:
-            self.root.mkdir(parents=True, exist_ok=True)
             if file_path.exists():
                 raise ReportWriteError("目标报告文件已存在，已停止以避免覆盖。")
-            temporary.write_text(content, encoding="utf-8")
-            temporary.replace(file_path)
+            atomic_write_text(file_path, content)
         except (OSError, ReportWriteError) as exc:
             return _error("report_write_error", f"报告写入失败：{exc}")
 

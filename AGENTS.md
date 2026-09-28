@@ -1,6 +1,6 @@
 # Project Objective
 
-开发企业人力资源顾问 Agent V0.9（Agent Name：HR Consultant），继承 V0.1—V0.8，并增加基于已取得证据的标准化 Markdown 报告生成。V0.9 只在用户明确要求时生成报告草稿，不增加 Word/PDF、自动分发、批量生成或脱离证据的自动结论。Codex 应以用户当次明确指定的 Milestone 为工作边界，完成后停止。
+开发企业人力资源顾问 Agent V1.0 Release Candidate（Agent Name：HR Consultant）。V1.0 不新增业务能力，完整继承 V0.1—V0.9，并集中完成版本控制、安全权限、工具编排、可安装 CLI、依赖锁定、跨版本评测和发布文档加固。Codex 应以当前发布加固 Milestone 为工作边界，完成后停止。
 
 # Product Source of Truth
 
@@ -46,7 +46,7 @@
 
 # Scope Control
 
-V0.9 除 V0.1—V0.8 既有能力，以及本次明确允许的标准化 Markdown HR 报告生成外，禁止开发以下能力：
+V1.0 只允许加固、重构、测试、评测、打包与文档改进，不增加 V0.1—V0.9 以外的业务能力。继续禁止：
 
 - 数据库；
 - 外部或托管向量数据库、FAISS、Chroma、Pinecone、Qdrant；
@@ -59,4 +59,4 @@ V0.9 除 V0.1—V0.8 既有能力，以及本次明确允许的标准化 Markdow
 - 自动员工标签或自动人事决策；
 - Word、PDF、HTML 或演示文稿报告；报告模板设计器、批量生成、自动发送、审批、电子签章；除生成的 Markdown 报告、知识库既有文件、`state/projects.json` 与 `state/memories.json` 之外的其他持久化 State。
 
-不得为上述能力预建接口、数据模型、服务或依赖。Excel Reader 只读取结构化数据；`src/analytics/` 只接收内存记录并统计；Document Loader/Parser 只形成标准化文档；RAG 层只分块、向量化和检索；State 层只保存用户明确确认的项目上下文与引用；Memory 层只保存用户明确授权的稳定上下文；Report Generator 只校验、排版并保存 Agent 提供的结构化草稿；Agent 只选择工具、说明来源、解释结果和控制判断边界。不得根据 Excel preview 自行计算，不得把检索结果、文件规定、项目 State 或 Memory 当成现实执行证据，不得修改源文件或填补关键业务数据。若请求与 V0.9 范围冲突，先指出冲突并确认适用版本。
+不得为上述能力预建接口、数据模型、服务或依赖。Excel Reader 只读取结构化数据；`src/analytics/` 只接收内存记录并统计；Document Loader/Parser 只形成标准化文档；RAG 层只分块、向量化和检索；State 层只保存用户明确确认的项目上下文与引用；Memory 层只保存用户明确授权的稳定上下文；Report Generator 只校验、排版并保存 Agent 提供的结构化草稿；Agent 只选择工具、说明来源、解释结果和控制判断边界。不得根据 Excel preview 自行计算，不得把检索结果、文件规定、项目 State 或 Memory 当成现实执行证据，不得修改源文件或填补关键业务数据。若请求与 V1.0 范围冲突，先指出冲突并确认适用版本。

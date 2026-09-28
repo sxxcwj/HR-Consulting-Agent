@@ -3,6 +3,9 @@
 __pycache__/
 .pytest_cache/
 *.py[cod]
+*.egg-info/
+build/
+dist/
 .DS_Store
 knowledge/vector_index.sqlite3
 knowledge/vector_index.sqlite3-shm

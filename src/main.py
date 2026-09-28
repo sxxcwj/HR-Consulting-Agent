@@ -1,4 +1,4 @@
-"""Terminal interface for HR Consultant V0.9."""
+"""Terminal interface for HR Consultant V1.0 release candidate."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from .agent import AgentError, HRConsultant
+from .config import APPLICATION_ROOT
 
 
 INITIAL_PROMPT = "请输入企业人力资源管理问题："
@@ -23,7 +24,7 @@ SIMPLE_REPLIES = {
 
 def load_local_environment(path: Path | None = None) -> None:
     """Load an ignored local .env without overriding real environment variables."""
-    env_path = path or Path(__file__).resolve().parents[1] / ".env"
+    env_path = path or APPLICATION_ROOT / ".env"
     load_dotenv(dotenv_path=env_path, override=False)
 
 
@@ -81,6 +82,11 @@ def run(
         first_turn = False
 
 
-if __name__ == "__main__":
+def main() -> int:
+    """Load local configuration and start the installable CLI."""
     load_local_environment()
-    raise SystemExit(run())
+    return run()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

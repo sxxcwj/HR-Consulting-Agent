@@ -1,1 +1,1 @@
-"""HR Consultant V0.9 terminal application."""
+"""HR Consultant V1.0 release-candidate terminal application."""

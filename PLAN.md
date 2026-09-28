@@ -1,4 +1,4 @@
-# HR Consultant V0.9 开发计划
+# HR Consultant V1.0 发布计划
 
 本计划依据 `AGENTS.md`、`PRODUCT_SPEC.md`、`AGENT_SPEC.md` 和 `WORKFLOW.md`。V0.1 按 M1 → M8 完成，V0.2 当前只执行 M9；每次只实施用户指定的当前 Milestone。以下 `Files` 是计划在相应阶段创建或修改的文件，`Validation Command` 是该阶段实施后的目标命令；本计划本身不表示这些文件或命令现在已经可用。
 
@@ -6,7 +6,7 @@
 
 根据用户最新要求，V0.1 的模型提供方改为 DeepSeek，继续使用 OpenAI 官方 Python SDK 的兼容接口。M1—M8 均已完成；12 个固定案例全部通过结构和范围检查，11/12 通过七维内容质量评审，真实 API 在线测试一次性 14/14 通过。具体证据见 `evals/ACCEPTANCE_REPORT.md`。
 
-V0.2 通过 M9 增加离职率 Tool；V0.3 通过 M10 增加只读 Excel 元数据；V0.4 通过 M11 增加五个描述性分析 Tool；V0.5 通过 M12 增加本地企业文件知识库；V0.6 通过 M13 增加本地 RAG；V0.7 通过 M14 增加显式项目 State；V0.8 通过 M15 增加显式长期 Memory；V0.9 只通过 M16 增加 Markdown 报告生成。
+V0.2 通过 M9 增加离职率 Tool；V0.3 通过 M10 增加只读 Excel 元数据；V0.4 通过 M11 增加五个描述性分析 Tool；V0.5 通过 M12 增加本地企业文件知识库；V0.6 通过 M13 增加本地 RAG；V0.7 通过 M14 增加显式项目 State；V0.8 通过 M15 增加显式长期 Memory；V0.9 通过 M16 增加 Markdown 报告生成；V1.0 只通过 M17 完成发布加固。
 
 ## M1 项目初始化
 
@@ -476,3 +476,30 @@ python -m src.main
 **Tests**：V0.9 共 18 项专项测试（17 项离线、1 项真实 DeepSeek）全部通过；完整离线回归 `234 passed, 21 deselected`；完整在线回归 `21 passed, 234 deselected`。CLI 启动/退出、源码与测试编译、依赖完整性、密钥扫描和临时目录中的真实 Markdown 写入均通过；已核对九个固定章节、来源索引、草稿声明与受控路径，正式 `reports/generated/` 未留下验收文件。
 
 **Known Limitations**：只生成 Markdown 草稿；不支持 Word/PDF/HTML/PPT、品牌模板、图表、批量、自动发送、审批、签名、自动更新或报告 Registry。
+
+## M17 V1.0 Release Hardening
+
+**Objective**：不新增业务能力，将 V0.9 加固为可恢复、可安装、可审计和可持续验证的 V1.0 Release Candidate。
+
+**Tasks**：Git 基线与标签；最小文件权限；共享敏感信息检测；Tool 执行注册表；`pyproject.toml` 与 `hragent`；依赖锁定；V0.2—V0.9 跨能力评测与确定性评分；Python 3.11—3.13 CI；API 数据披露；发布与试点文档；完整回归。
+
+**Files**：`src/security.py`、`src/config.py`、`src/agent.py`、`pyproject.toml`、`requirements-lock.txt`、`.github/workflows/tests.yml`、`evals/v1_capability_cases.json`、`evals/evaluator.py`、`RELEASE_V1.0.md`、`PILOT_PLAN.md`、相关源码、测试与规格文档。
+
+**Acceptance Criteria**：满足 `PRODUCT_SPEC.md` 第 17.3 节全部要求，V0.1—V0.9 行为不回退，不新增业务 Tool。
+
+**Validation Command**：
+
+```bash
+python -m pytest -q
+python -m pytest -q -m live
+hragent
+python -m src.main
+```
+
+**Status**：DONE
+
+**Implemented**：已建立 V0.9 基线 commit 与 `v0.9.0` tag；统一敏感信息/凭据检测和私有原子写入；把简单 Tool 执行改为注册表并保持 28 个 Tool 唯一；增加运行根目录解析，避免安装后把数据写入 `site-packages`；提供标准 wheel 安装、`hragent` 入口、精确依赖锁和 Python 3.11—3.13 CI；增加 V0.2—V0.9 共 24 个跨版本评测案例、确定性检查器、API 数据披露、发布清单和匿名化试点计划。现有 State、知识库、解析产物和报告目录/文件已收紧为仅当前用户访问。
+
+**Tests**：新增 11 项离线加固测试；完整离线回归 `245 passed, 21 deselected`；最终代码状态下完整真实 DeepSeek 回归 `21 passed, 245 deselected`。`hragent`（含项目外目录）与 `python -m src.main` 启动/退出通过，`pip check`、Python 3.11/3.12/3.13 `compileall`、TOML/YAML/JSON 解析、28 Tool 唯一性、精确依赖比对、权限检查、密钥模式扫描和 `git diff --check` 通过。密钥扫描仅命中两条用于拒绝凭据的虚构测试值。
+
+**Known Limitations**：V1.0 仍是本地单用户 CLI，不承诺多人并发、企业级权限、云同步或真实员工敏感数据生产使用。完整测试本地运行环境为 Python 3.13；Python 3.11/3.12 已完成源码编译检查，完整依赖与离线回归由 CI 矩阵验证。真实客户匿名化试点尚未执行，不能把 RC 视为生产合规认证。

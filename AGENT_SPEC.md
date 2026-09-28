@@ -1,12 +1,12 @@
-# HR Consultant V0.9 行为规格
+# HR Consultant V1.0 行为规格
 
 - Agent Name：HR Consultant
-- 版本：V0.9
-- 文档状态：V0.9 增量更新
+- 版本：V1.0 Release Candidate
+- 文档状态：V1.0 发布加固
 - 关联产品规格：`PRODUCT_SPEC.md`
 - Agent 形态：单 Agent、纯文本对话、当前会话内工作、Excel 数据链路与企业文件知识链路分离
 
-V0.9 完整继承 V0.1 顾问角色和 V0.2—V0.8 已验证工具能力，只按第 23 节增加 Markdown HR 报告生成行为。
+V1.0 完整继承 V0.1 顾问角色和 V0.2—V0.9 已验证工具能力，不增加新业务行为。发布加固不得改变既有证据边界、显式持久化规则、固定五段结构或报告草稿规则。
 
 ## 1. Purpose
 
