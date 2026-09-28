@@ -524,8 +524,8 @@ python -m src.main
 
 **Status**：DONE
 
-**Implemented**：CLI 默认调用 `HRConsultant.ask_streamed()`；Agent 使用官方 SDK `responses.stream()`，只转发 `ResponseTextDeltaEvent` 的文本 delta，完整消费每轮流后通过 `get_final_response()` 取得最终 Response，再沿用既有 Function Tool 循环。内部输出前缀、工具参数、调用标识和 JSON 不对普通用户显示；非流式 `ask()` 继续保留。
+**Implemented**：CLI 默认调用 `HRConsultant.ask_streamed()`；Agent 使用官方 SDK `responses.stream()`，只转发 `ResponseTextDeltaEvent` 的文本 delta，完整消费每轮流后通过 `get_final_response()` 取得最终 Response，再沿用既有 Function Tool 循环。内部输出前缀、工具参数、调用标识和 JSON 不对普通用户显示；非流式 `ask()` 继续保留。交互式终端中用户输入为青色、Agent 输出为绿色；非 TTY 和 `NO_COLOR` 环境保持纯文本。
 
-**Tests**：新增 7 项流式测试，覆盖普通问答、Tool Call、无需 Tool、工具参数错误、流式/非流式最终文本一致、最终响应保留、内部事件/前缀隐藏和中断错误（部分断言合并于同一案例）；专项 `7 passed`，完整离线回归 `256 passed, 21 deselected`，完整在线回归最终复验 `21 passed, 256 deselected`。真实 CLI 通过离职率工具链得到平均人数 190、离职率 15.79%，并以五部分自然语言流式显示。首次在线全量运行有 1 项模型随机格式漂移，单项复验与第二次全量复验均通过。
+**Tests**：新增 7 项流式测试和 1 项终端颜色测试，覆盖普通问答、Tool Call、无需 Tool、工具参数错误、流式/非流式最终文本一致、最终响应保留、内部事件/前缀隐藏、中断错误，以及青色输入/绿色输出的 ANSI 边界（部分断言合并于同一案例）；流式专项 `7 passed`，CLI/流式/错误专项合计 `25 passed`，完整离线回归 `257 passed, 21 deselected`，完整在线回归最终复验 `21 passed, 256 deselected`。真实 CLI 通过离职率工具链得到平均人数 190、离职率 15.79%，并以五部分自然语言流式显示。首次在线全量运行有 1 项模型随机格式漂移，单项复验与第二次全量复验均通过；终端颜色只涉及本地显示层，因此未重复调用在线模型。
 
 **Known Limitations**：终端已经显示的流式文字无法撤回；若模型最终内容不符合固定结构，程序会停止本轮、不给会话历史提交该回答，并提示重试。Streaming 不改变模型本身可能出现的随机格式波动。

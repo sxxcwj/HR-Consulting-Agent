@@ -6,7 +6,14 @@ from pathlib import Path
 
 from pytest import MonkeyPatch
 
-from src.main import INITIAL_PROMPT, load_local_environment, run
+from src.main import (
+    AGENT_OUTPUT_COLOR,
+    ANSI_RESET,
+    INITIAL_PROMPT,
+    USER_INPUT_COLOR,
+    load_local_environment,
+    run,
+)
 
 
 class StubAgent:
@@ -110,6 +117,38 @@ def test_greeting_does_not_require_api_client() -> None:
         agent_factory=forbidden_factory,  # type: ignore[arg-type]
     ) == 0
     assert "HR Consultant" in outputs[0]
+
+
+def test_terminal_colors_distinguish_user_input_and_agent_output() -> None:
+    class StreamingStub:
+        def ask_streamed(self, _: str, *, on_text_delta) -> str:
+            on_text_delta("Agent回答")
+            return "Agent回答"
+
+    entries = iter(["用户问题", "退出"])
+    prompts: list[str] = []
+    rendered: list[str] = []
+    lines: list[str] = []
+
+    def input_fn(prompt: str) -> str:
+        prompts.append(prompt)
+        return next(entries)
+
+    result = run(
+        input_fn=input_fn,
+        output_fn=lines.append,
+        stream_output_fn=rendered.append,
+        agent_factory=StreamingStub,  # type: ignore[arg-type]
+        color_output=True,
+    )
+
+    assert result == 0
+    assert prompts[0] == f"{USER_INPUT_COLOR}{INITIAL_PROMPT}"
+    terminal_text = "".join(rendered)
+    assert f"{AGENT_OUTPUT_COLOR}Agent回答{ANSI_RESET}" in terminal_text
+    assert terminal_text.count(USER_INPUT_COLOR) == 0
+    assert ANSI_RESET in terminal_text
+    assert lines == ["", "会话已结束。"]
 
 
 def test_local_env_loads_without_overriding_real_environment(

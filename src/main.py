@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -14,6 +15,9 @@ from .config import APPLICATION_ROOT
 
 
 logger = logging.getLogger(__name__)
+ANSI_RESET = "\033[0m"
+USER_INPUT_COLOR = "\033[96m"
+AGENT_OUTPUT_COLOR = "\033[92m"
 INITIAL_PROMPT = "请输入企业人力资源管理问题："
 FOLLOW_UP_PROMPT = "请继续补充信息（输入“退出”结束）："
 EXIT_WORDS = {"退出", "exit", "quit", "q"}
@@ -30,22 +34,50 @@ def load_local_environment(path: Path | None = None) -> None:
     load_dotenv(dotenv_path=env_path, override=False)
 
 
+def terminal_colors_enabled(explicit: bool | None = None) -> bool:
+    """Use ANSI colors only for an interactive terminal unless explicitly set."""
+    if explicit is not None:
+        return explicit
+    return (
+        "NO_COLOR" not in os.environ
+        and sys.stdin.isatty()
+        and sys.stdout.isatty()
+    )
+
+
 def run(
     *,
     input_fn: Callable[[str], str] = input,
     output_fn: Callable[[str], None] = print,
     stream_output_fn: Callable[[str], None] | None = None,
     agent_factory: Callable[[], HRConsultant] = HRConsultant,
+    color_output: bool | None = None,
 ) -> int:
     """Run a conversation, streaming model text when the Agent supports it."""
     if stream_output_fn is None:
         stream_output_fn = lambda delta: print(delta, end="", flush=True)
+    use_color = terminal_colors_enabled(color_output)
+
+    def output_agent_line(text: str) -> None:
+        if use_color:
+            stream_output_fn(f"{AGENT_OUTPUT_COLOR}{text}{ANSI_RESET}")
+            output_fn("")
+        else:
+            output_fn(text)
 
     agent: HRConsultant | None = None
     first_turn = True
     while True:
+        prompt = INITIAL_PROMPT if first_turn else FOLLOW_UP_PROMPT
         try:
-            question = input_fn(INITIAL_PROMPT if first_turn else FOLLOW_UP_PROMPT)
+            if use_color:
+                # Keep the color active while input() echoes the user's typing.
+                try:
+                    question = input_fn(f"{USER_INPUT_COLOR}{prompt}")
+                finally:
+                    stream_output_fn(ANSI_RESET)
+            else:
+                question = input_fn(prompt)
         except (EOFError, KeyboardInterrupt):
             output_fn("会话已结束。")
             return 0
@@ -58,7 +90,7 @@ def run(
             output_fn("请输入具体的企业人力资源管理问题。")
             continue
         if question.lower() in SIMPLE_REPLIES:
-            output_fn(SIMPLE_REPLIES[question.lower()])
+            output_agent_line(SIMPLE_REPLIES[question.lower()])
             continue
 
         if agent is None:
@@ -76,6 +108,8 @@ def run(
         def emit_delta(delta: str) -> None:
             nonlocal stream_started
             if delta:
+                if use_color and not stream_started:
+                    stream_output_fn(AGENT_OUTPUT_COLOR)
                 stream_started = True
                 stream_output_fn(delta)
 
@@ -84,19 +118,25 @@ def run(
             if callable(streamed_ask):
                 streamed_ask(question, on_text_delta=emit_delta)
                 if stream_started:
+                    if use_color:
+                        stream_output_fn(ANSI_RESET)
                     output_fn("")
             else:
                 # Keep injected test doubles and programmatic callers compatible.
                 answer = agent.ask(question)
-                output_fn(answer)
+                output_agent_line(answer)
         except KeyboardInterrupt:
             if stream_started:
+                if use_color:
+                    stream_output_fn(ANSI_RESET)
                 output_fn("")
             output_fn("会话已结束。")
             return 0
         except AgentError as exc:
             if stream_started:
                 logger.debug("Streaming generation failed", exc_info=True)
+                if use_color:
+                    stream_output_fn(ANSI_RESET)
                 output_fn("")
                 print("错误：本次生成过程中出现错误，请重新尝试。", file=sys.stderr)
             else:
@@ -106,6 +146,8 @@ def run(
             # Keep internal exception details and credentials out of user output.
             logger.debug("Unexpected Agent failure", exc_info=True)
             if stream_started:
+                if use_color:
+                    stream_output_fn(ANSI_RESET)
                 output_fn("")
                 print("错误：本次生成过程中出现错误，请重新尝试。", file=sys.stderr)
             else:

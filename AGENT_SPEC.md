@@ -676,4 +676,4 @@ Report Generator 只排版和保存，不读取任何上游数据。Agent 应先
 
 ## 24. Streaming Delivery Behavior
 
-Streaming 是 CLI 传输层行为，不改变 Agent 的角色、Prompt、工具选择、证据判断和输出协议。只允许把模型的 `response.output_text.delta` 文本显示给用户；Function Tool 参数、结果对象、调用标识和 SDK 事件保持隐藏。所有流必须完整消费，Tool 调用结束后 Agent 继续生成自然语言答案。成功结束时保留完整最终响应与可见文本；流中断或最终结构无效时不得把不完整回答写入对话历史，也不得声称回答已经完成。正式 HR 分析仍须符合第 8 节的五部分结构。
+Streaming 是 CLI 传输层行为，不改变 Agent 的角色、Prompt、工具选择、证据判断和输出协议。只允许把模型的 `response.output_text.delta` 文本显示给用户；Function Tool 参数、结果对象、调用标识和 SDK 事件保持隐藏。所有流必须完整消费，Tool 调用结束后 Agent 继续生成自然语言答案。成功结束时保留完整最终响应与可见文本；流中断或最终结构无效时不得把不完整回答写入对话历史，也不得声称回答已经完成。交互式终端可用青色区分用户输入、绿色区分 Agent 输出；颜色属于显示层，不得进入对话历史、模型输入或重定向文本。正式 HR 分析仍须符合第 8 节的五部分结构。
