@@ -529,3 +529,30 @@ python -m src.main
 **Tests**：新增 7 项流式测试和 1 项终端颜色测试，覆盖普通问答、Tool Call、无需 Tool、工具参数错误、流式/非流式最终文本一致、最终响应保留、内部事件/前缀隐藏、中断错误，以及青色输入/绿色输出的 ANSI 边界（部分断言合并于同一案例）；流式专项 `7 passed`，CLI/流式/错误专项合计 `25 passed`，完整离线回归 `257 passed, 21 deselected`，完整在线回归最终复验 `21 passed, 256 deselected`。真实 CLI 通过离职率工具链得到平均人数 190、离职率 15.79%，并以五部分自然语言流式显示。首次在线全量运行有 1 项模型随机格式漂移，单项复验与第二次全量复验均通过；终端颜色只涉及本地显示层，因此未重复调用在线模型。
 
 **Known Limitations**：终端已经显示的流式文字无法撤回；若模型最终内容不符合固定结构，程序会停止本轮、不给会话历史提交该回答，并提示重试。Streaming 不改变模型本身可能出现的随机格式波动。
+
+## M19 Anonymous Production Readiness Pilot
+
+**Objective**：使用完全虚构数据执行匿名化合成内部试点，验证 V0.1—V0.9 工具链、流式输出和边界控制，并形成生产就绪差距评估；不新增或修改业务能力。
+
+**Tasks**：建立 16 个跨能力模拟场景；隔离 State、Memory、知识索引和报告目录；使用真实配置模型执行并保存原始证据；独立复验失败案例；评估安全、治理、运维和生产部署差距；形成 NO-GO/GO 判断。
+
+**Files**：`evals/pilot_cases.json`、`evals/pilot_runner.py`、`evals/pilot_results.json`、`evals/pilot_failure_retest.json`、`tests/test_pilot_evaluation.py`、`PRODUCTION_READINESS_GAP_REPORT.md`、`PILOT_PLAN.md`、`evals/README.md`、`PLAN.md`。
+
+**Acceptance Criteria**：案例与运行数据完全虚构；运行目录隔离；不记录 API Key；原始结果可追溯；失败不伪装成功；生产结论与证据一致；不借评估任务增加业务功能。
+
+**Validation Command**：
+
+```bash
+python -m pytest -q tests/test_pilot_evaluation.py
+python -m pytest -q
+python -m compileall -q src tests evals
+git diff --check
+```
+
+**Status**：DONE
+
+**Implemented**：完成 8 类、每类 2 个的 16 案例模拟试点；使用真实 DeepSeek API 和临时 `HR_AGENT_HOME` 执行；5 份虚构知识文件成功登记，本地 BGE 索引成功建立；首轮 14/16 通过，预期 Tool 命中率 100%，禁止 Tool 调用 0；两个失败案例在独立复验中稳定复现；已形成生产就绪差距评估报告。
+
+**Tests**：试点评估器专项 `2 passed`；完整离线回归 `259 passed, 21 deselected`；`src/`、`tests/`、`evals/` 编译通过；三个试点 JSON 文件解析通过；试点产物凭据模式扫描和 `git diff --check` 通过。
+
+**Known Limitations**：这是匿名化合成内部试点，不是实际客户试点；未采集真实使用者评分或第二评审意见。两个流式输出 P0 缺陷尚未修复，生产决策为 NO-GO。

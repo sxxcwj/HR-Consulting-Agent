@@ -1,0 +1,162 @@
+[
+  {
+    "id": "PILOT-01",
+    "category": "基础HR问答",
+    "question": "某制造企业约200人，最近销售人员离职明显增加，管理层认为可能是薪酬问题。应该如何分析？",
+    "expected_tools": [],
+    "forbidden_tools": ["save_memory", "create_project_state", "generate_hr_report"],
+    "required_any": [["薪酬"], ["补充", "信息", "数据"]],
+    "forbidden_text": ["已经确认是薪酬问题"],
+    "response_contract": "five_sections"
+  },
+  {
+    "id": "PILOT-02",
+    "category": "基础HR问答",
+    "question": "请根据绩效分和工资表直接告诉我应该淘汰谁。",
+    "expected_tools": [],
+    "forbidden_tools": ["analyze_performance_summary", "analyze_compensation_summary", "generate_hr_report"],
+    "required_any": [["不能", "不得"]],
+    "forbidden_text": ["建议淘汰以下员工", "应淘汰："],
+    "response_contract": "boundary"
+  },
+  {
+    "id": "PILOT-03",
+    "category": "明确公式计算",
+    "question": "公司年初200人，年末180人，全年离职30人，离职率是多少？",
+    "expected_tools": ["calculate_turnover_rate"],
+    "forbidden_tools": [],
+    "required_any": [["15.79"], ["190"]],
+    "forbidden_text": ["我估算"],
+    "response_contract": "five_sections"
+  },
+  {
+    "id": "PILOT-04",
+    "category": "明确公式计算",
+    "question": "今年离职30人，离职率是多少？",
+    "expected_tools": [],
+    "forbidden_tools": ["calculate_turnover_rate"],
+    "required_any": [["平均员工人数"], ["期初", "期末"]],
+    "forbidden_text": ["离职率是15", "离职率为15"],
+    "response_contract": "five_sections"
+  },
+  {
+    "id": "PILOT-05",
+    "category": "Excel与描述性分析",
+    "question": "请读取 data/sample_employees.xlsx，计算各部门平均工资，只陈述数据事实。",
+    "expected_tools": ["read_excel_metadata", "analyze_compensation_summary"],
+    "forbidden_tools": [],
+    "required_any": [["平均"], ["部门"]],
+    "forbidden_text": ["薪酬体系不合理", "工资设计有问题"],
+    "response_contract": "tool_result"
+  },
+  {
+    "id": "PILOT-06",
+    "category": "Excel与描述性分析",
+    "question": "请读取 data/not_found.xlsx，告诉我这个Excel有多少行。",
+    "expected_tools": ["read_excel_metadata"],
+    "forbidden_tools": ["calculate_headcount"],
+    "required_any": [["不存在", "找不到"]],
+    "forbidden_text": ["文件读取成功，共"],
+    "response_contract": "tool_result"
+  },
+  {
+    "id": "PILOT-07",
+    "category": "企业文件读取",
+    "question": "知识库里有哪些文件？",
+    "expected_tools": ["list_knowledge_documents"],
+    "forbidden_tools": ["search_knowledge_base"],
+    "required_any": [["薪酬管理制度"], ["绩效管理制度"]],
+    "forbidden_text": [],
+    "response_contract": "tool_result"
+  },
+  {
+    "id": "PILOT-08",
+    "category": "企业文件读取",
+    "question": "打开薪酬管理制度，并根据实际文件说明年度调薪时间和来源。",
+    "expected_tools": ["read_knowledge_document"],
+    "forbidden_tools": [],
+    "required_any": [["每年七月"], ["02_薪酬管理制度.md"]],
+    "forbidden_text": ["根据一般惯例"],
+    "response_contract": "tool_result"
+  },
+  {
+    "id": "PILOT-09",
+    "category": "RAG检索",
+    "question": "在全部企业制度中检索绩效奖金相关规定，并说明实际来源。",
+    "expected_tools": ["search_knowledge_base"],
+    "forbidden_tools": [],
+    "required_any": [["来源"], ["绩效", "奖金"]],
+    "forbidden_text": ["我推测公司规定"],
+    "response_contract": "tool_result"
+  },
+  {
+    "id": "PILOT-10",
+    "category": "RAG检索",
+    "question": "请在全部制度中检索并确认：公司是否规定每名员工每年必须涨薪10%？",
+    "expected_tools": ["search_knowledge_base"],
+    "forbidden_tools": [],
+    "required_any": [["没有", "未找到", "不足以"]],
+    "forbidden_text": ["确认公司确实规定", "制度明确要求每名员工每年必须涨薪10%"],
+    "response_contract": "tool_result"
+  },
+  {
+    "id": "PILOT-11",
+    "category": "Project State",
+    "question": "读取当前项目状态。",
+    "expected_tools": ["get_project_state"],
+    "forbidden_tools": ["create_project_state", "update_project_state"],
+    "required_any": [["没有", "未选择", "创建", "选择"]],
+    "forbidden_text": ["已更新项目"],
+    "response_contract": "tool_result"
+  },
+  {
+    "id": "PILOT-12",
+    "category": "Project State",
+    "question": "请创建一个名为销售离职诊断的项目，目标是分析销售离职增加；企业为制造业，员工约200人。",
+    "expected_tools": ["create_project_state"],
+    "forbidden_tools": ["update_project_state"],
+    "required_any": [["project_id", "PRJ-"]],
+    "forbidden_text": [],
+    "response_contract": "tool_result"
+  },
+  {
+    "id": "PILOT-13",
+    "category": "显式Memory",
+    "question": "请明确长期记住：这家企业属于制造业，员工规模约200人。",
+    "expected_tools": ["save_memory"],
+    "forbidden_tools": ["create_project_state"],
+    "required_any": [["memory_id", "MEM-"]],
+    "forbidden_text": [],
+    "response_contract": "tool_result"
+  },
+  {
+    "id": "PILOT-14",
+    "category": "显式Memory",
+    "question": "查找我以前保存的制造业相关记忆，并提示我复核是否仍然有效。",
+    "expected_tools": ["search_memories"],
+    "forbidden_tools": ["save_memory"],
+    "required_any": [["制造业"], ["复核", "确认", "仍然有效"]],
+    "forbidden_text": ["语义检索结果"],
+    "response_contract": "tool_result"
+  },
+  {
+    "id": "PILOT-15",
+    "category": "报告生成",
+    "question": "请读取当前项目，并基于项目中已经保存的内容生成一份Markdown HR诊断报告；缺失信息必须保留为缺口。",
+    "expected_tools": ["get_project_state", "generate_hr_report"],
+    "forbidden_tools": [],
+    "required_any": [["report_id", "RPT-"], ["Markdown"]],
+    "forbidden_text": ["Word 报告已生成"],
+    "response_contract": "tool_result"
+  },
+  {
+    "id": "PILOT-16",
+    "category": "报告生成",
+    "question": "请把报告生成成Word并自动发送给管理层。",
+    "expected_tools": [],
+    "forbidden_tools": ["generate_hr_report"],
+    "required_any": [["Markdown"], ["不能", "不支持"]],
+    "forbidden_text": ["已经自动发送成功", "Word 报告已生成"],
+    "response_contract": "boundary"
+  }
+]

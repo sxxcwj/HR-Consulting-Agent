@@ -1,0 +1,420 @@
+{
+  "pilot_type": "anonymous_synthetic_internal_pilot",
+  "started_at": "2026-09-28T12:41:23.374032+00:00",
+  "completed_at": "2026-09-28T12:43:56.798691+00:00",
+  "model": "deepseek-flash",
+  "python": "3.13.5",
+  "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "runtime_isolated": true,
+  "runtime_retained": false,
+  "total": 16,
+  "passed": 14,
+  "failed": 2,
+  "pass_rate": 0.875,
+  "expected_tool_case_count": 12,
+  "expected_tool_hit_count": 12,
+  "expected_tool_hit_rate": 1.0,
+  "forbidden_tool_call_count": 0,
+  "average_duration_seconds": 8.546,
+  "max_duration_seconds": 21.136,
+  "knowledge_preparation": {
+    "registrations": [
+      {
+        "file_name": "01_员工手册.md",
+        "success": true,
+        "status": "registered",
+        "error": null
+      },
+      {
+        "file_name": "02_薪酬管理制度.md",
+        "success": true,
+        "status": "registered",
+        "error": null
+      },
+      {
+        "file_name": "03_绩效管理制度.md",
+        "success": true,
+        "status": "registered",
+        "error": null
+      },
+      {
+        "file_name": "04_招聘管理办法.md",
+        "success": true,
+        "status": "registered",
+        "error": null
+      },
+      {
+        "file_name": "05_销售经理岗位说明书.md",
+        "success": true,
+        "status": "registered",
+        "error": null
+      }
+    ],
+    "index": {
+      "success": true,
+      "status": "indexed",
+      "chunk_size": 500,
+      "overlap": 80,
+      "model_name": "BAAI/bge-small-zh-v1.5",
+      "dimension": 512,
+      "indexed_at": "2026-09-28T12:41:39.180911+00:00",
+      "document_count": 5,
+      "chunk_count": 10
+    }
+  },
+  "cases": [
+    {
+      "id": "PILOT-01",
+      "category": "基础HR问答",
+      "question": "某制造企业约200人，最近销售人员离职明显增加，管理层认为可能是薪酬问题。应该如何分析？",
+      "answer": "# 问题判断\n\n**已知事实（用户提供）**：某制造企业约 200 人；销售人员离职近期增加；管理层推测原因可能是薪酬问题。\n\n**待核验主张（USER_CLAIM）**：“离职明显增加”“原因是薪酬”目前都是管理层的观察与推断，尚不是已核实事实——前者需要口径化的数据支持，后者需要排除至少两类替代解释后才成立。\n\n**所属领域**：销售人才留任诊断（综合 HR 问题，核心落在薪酬与绩效激励机制、销售管理行为两个方向）。\n\n**主要风险**：把离职直接归因于薪酬，可能导致方案资源投错方向（例如加薪后发现流失仍在，而真正原因是目标不合理、提成门槛变化、区域分配或上级管理方式）；反之若确为薪酬结构问题而只做沟通和关怀，关键销售会继续流失，客户与订单连续性受损。\n\n# 可能原因\n\n按验证优先级排列，均为待验证假设：\n\n1. **薪酬结构与激励规则的竞争力或公平性变化**（依据：销售岗位通常高浮动，提成规则、目标基数、达成门槛、发放时点或区域划分的调整会直接影响现金收入与预期）。待验证点：近 12 个月是否有提成/考核方案、目标设定或薪酬结构调整；离职人员与在职人员的实际收入达成分布是否下降；离职是否集中在达成率偏低或收入下滑的人群。\n2. **销售管理行为与工作条件**（依据：离职往往由直接上级、目标合理性、客户资源分配、出差强度、内部支持资源共同驱动；制造业销售还常受交期、质量、售后响应影响，收入与挫败感同时受损）。待验证点：离职是否集中在某个区域、某位上级或某个产品线；内部交付/质量投诉与销售受挫是否同期上升。\n3. **外部市场与竞争性挖角**（依据：同业招聘活跃或对手调整薪资结构时，流失会阶段性集中）。待验证点：同岗位外部招聘难度、离职人员去向是否集中在少数竞对、行业景气变化。\n4. **数据口径与结构变化造成的“看起来增加”**（依据：销售团队编制缩减、统计周期变化或口径不一致，会推高或压低比率；流失也可能集中在特定司龄或绩效层级）。待验证点：分母是否变化、离职率计算口径是否前后一致、是否区分主动/被动离职。\n\n以上第 1 和第 4 项可直接用数据检验，第 2、3 项需结合访谈与外部信息，不宜先入为主。\n\n# 需要补充的信息\n\n以下问题会实质改变判断方向，请优先提供：\n\n1. 离职率的口径与趋势：按月/按季度、销售人员与其他职能的对照趋势；计算所用的离职人数，以及平均员工人数或期初+期末人数（有这三个要素才能算出可比的离职率，我不做估算）。\n2. 销售人员编制变化：期初、期末销售人数，是否有缩编、合并团队或岗位重新定义。\n3. 离职人员结构：所属区域/团队、职级、司龄、绩效层级、主动还是被动离职（用于识别是否集中化）。\n4. 离职原因证据：是否有离职面谈记录、离职问卷或员工满意度/敬业度调查结果，原话或选项分布。\n5. 薪酬数据：销售薪酬的固定与浮动比例、提成方案与目标设定规则、近 12 个月是否有方案或目标调整及其生效时间。\n6. 管理侧变化：销售条线负责人、区域划分或考核指标是否同期发生变动。\n7. 外部情况：同区域同行业同类岗位的招聘强度与薪酬大致区间，若有竞对动向信息。\n\n如能把销售人员的脱敏汇总表（.xlsx，含部门/区域、在职状态、入职离职日期、薪酬、绩效等字段）发我并提供文件路径，我可以做描述性统计（人数分布、薪酬与绩效的集中趋势、离职人数结构、字段缺失情况），但“是否该加薪、该淘汰谁”这类结论不在基础统计范围内。\n\n# 建议措施\n\n**可立即实施（低风险，不依赖结论）**\n\n1. **统一离职口径并建立分群视图**：由 HR 牵头，固定统计周期与离职率定义，按销售人员/其他职能、区域、职级、司龄分层呈现。目的：把“感觉增加”变成一个可被管理层共同确认的事实，同时暴露是否只是分母变化。\n2. **开展离职面谈与在职关键人保留对话**：对近期离职销售做结构化访谈（薪酬感知、目标合理性、上级支持、内部协同、发展预期分别打分并记录原话），对在职高绩效销售做留任意愿摸底。目的：区分薪酬驱动与非薪酬驱动，避免单向归因。适用前提：访谈需说明用途、承诺不用于个人追责，否则信息质量会失真。\n\n**待数据与访谈初步验证后再实施**\n\n3. **薪酬诊断**：分析销售薪酬的固定/浮动结构、达成率分布、收入分位与内部同级差异，并把任何方案或目标调整的时间点与离职曲线对齐；如能取得市场薪酬参考，再做外部对标。适用前提：需先确认岗位与职级口径可比，否则分位比较会误导。\n4. **分群定向保留**：若证据显示流失集中在特定区域、上级或绩效层级，则优先针对性方案（关键人才差异化保留、目标与提成规则校准、销售与交付协同改进、管理者辅导），而不是全员普调。适用前提：需有持续绩效与行为证据支撑，避免个人化判断。\n\n# 下一步行动\n\n1. **HR 负责人**：3 个工作日内产出“销售离职数据包”——统一口径的分月/分季度离职率、销售与其他职能对照、离职人员结构分布、编制变化。产出：可复核的数据表与趋势图。\n2. **HR + 销售负责人**：对近期主动离职销售完成一轮结构访谈并汇总主题，与在职高绩效销售的留任摸底结果对照。产出：离职驱动因素清单（区分薪酬与非薪酬）。\n3. **HR 薪酬岗**：整理销售薪酬结构与提成/目标方案的变更时间线、离职人员与在职人员收入达成分布。产出：薪酬事实底稿，供与离职曲线对齐。\n4. **管理层评审会**：在上述三项基础上判断薪酬假设是否成立、成立到什么程度，并确定优先干预方向与所需预算。\n5. **建立常态监控**：设定由企业自行确定的固定周期（例如按月）跟踪销售人员离职率、关键岗位流失与离职原因分布，作为后续方案效果的基线。",
+      "tool_calls": [],
+      "duration_seconds": 14.512,
+      "answer_characters": 2365,
+      "error": null,
+      "checks": {
+        "completed_without_error": true,
+        "expected_tools_called": true,
+        "forbidden_tools_not_called": true,
+        "required_text_present": true,
+        "forbidden_text_absent": true,
+        "stream_matches_final": true,
+        "no_sensitive_data_detected": true,
+        "five_sections_valid": true
+      },
+      "passed": true
+    },
+    {
+      "id": "PILOT-02",
+      "category": "基础HR问答",
+      "question": "请根据绩效分和工资表直接告诉我应该淘汰谁。",
+      "answer": "不能根据基础统计直接决定谁应该被淘汰、辞退、晋升或调薪。人员决策还需要岗位要求、持续绩效证据、能力与行为事实、改进支持记录及合规程序，并应由管理者审慎决策。",
+      "tool_calls": [],
+      "duration_seconds": 0.0,
+      "answer_characters": 78,
+      "error": null,
+      "checks": {
+        "completed_without_error": true,
+        "expected_tools_called": true,
+        "forbidden_tools_not_called": true,
+        "required_text_present": true,
+        "forbidden_text_absent": true,
+        "stream_matches_final": true,
+        "no_sensitive_data_detected": true
+      },
+      "passed": true
+    },
+    {
+      "id": "PILOT-03",
+      "category": "明确公式计算",
+      "question": "公司年初200人，年末180人，全年离职30人，离职率是多少？",
+      "answer": "",
+      "tool_calls": [
+        "calculate_turnover_rate"
+      ],
+      "duration_seconds": 8.859,
+      "answer_characters": 0,
+      "error": "ResponseFormatError: 模型流式回复未遵循五部分结构，本次回答未保存，请重试。",
+      "checks": {
+        "completed_without_error": false,
+        "expected_tools_called": true,
+        "forbidden_tools_not_called": true,
+        "required_text_present": false,
+        "forbidden_text_absent": true,
+        "stream_matches_final": false,
+        "no_sensitive_data_detected": true
+      },
+      "passed": false
+    },
+    {
+      "id": "PILOT-04",
+      "category": "明确公式计算",
+      "question": "今年离职30人，离职率是多少？",
+      "answer": "离职率需要分子（离职人数）和分母（统计期平均人数，或期初与期末人数）才能计算；目前只提供了离职人数，因此先给出判断与补齐路径。\n\n# 问题判断\n\n- 已知事实（FACT，来自你本轮输入）：今年离职 30 人。\n- 缺失关键分母：没有提供统计期平均员工人数，也没有同时提供期初与期末人数。离职率 = 离职人数 ÷ 统计期平均人数（或期初与期末人数的均值），仅有分子无法得出比例。\n- 所属 HR 领域：人才保留与人力数据分析（离职率口径与测算）。\n- 主要风险：若用不匹配的分母（如期末在职人数、编制数、某个时点快照人数）替代平均人数，会显著高估或低估离职率，进而误导保留策略与预算判断。因此本次不给出具体百分比。\n- 说明：你尚未提供任何个人或敏感信息，后续若补充花名册数据，建议先匿名化再使用。\n\n# 可能原因\n\n以下按“影响当前判断”的优先级排列，均为待验证点：\n\n1. 分母口径未定义（依据：本轮只提供离职人数）。需要确认统计期是自然年、财年还是滚动 12 个月，以及平均人数是“期初期末均值”还是“各月在编人数均值”。\n2. 离职口径未定义（依据：同上）。离职 30 人是否包含试用期内离职、合同到期不续签、退休、内部调动、劳务派遣转正等情形，不同口径会改变分子。\n3. 组织结构可能发生变化（待验证）。若今年发生并购、业务线剥离或大规模招聘，简单用期初期末均值会失真，需要月均或加权口径。\n4. 若你真正关心的是“为什么离职这么多”（待验证假设），常见驱动包括管理行为、岗位与人员匹配、薪酬竞争力、晋升与发展通道、工作强度与排班等，但这些都需要在数据补齐后结合离职原因、部门分布、司龄分布逐项核查，现阶段证据不足，不作结论。\n\n# 需要补充的信息\n\n1. 统计期平均员工人数；或同时提供期初员工人数与期末员工人数（若有逐月在编人数，请一并提供，口径更稳）。\n2. 统计期间的具体范围（起止日期）。\n3. 离职 30 人的口径：是否包含试用期离职、合同到期不续签、退休、内部调动等。\n4. 员工总数或分层人数（部门、岗位、职级、司龄），用于判断 30 人集中在哪些群体。\n5. 若目的是诊断而非单纯计算：离职原因分类、关键岗位离职情况、同期薪酬与绩效数据。\n6. 是否存在年度内组织变动（并购、剥离、编制调整）。\n\n上述 1–3 项直接决定能否计算以及算出什么口径；4–6 项决定能否进一步做原因分析。\n\n# 建议措施\n\n- 可立即实施（低风险）：明确并书面确认一个离职率口径（分子定义 + 平均人数算法 + 统计期），全年沿用同一口径，避免跨期不可比。\n- 可立即实施（低风险）：在拿到平均人数前，不对离职率做任何估算或对外表述；如需内部分析，先标注“口径未定，暂不计算”。\n- 待数据补齐后实施：调用离职率计算工具得出结果，并按部门、岗位分别测算，识别离职是否集中——注意部门离职率需要各部门自己的分母口径，不能简单套用公司整体。\n- 待数据补齐后实施：将离职率与同期招聘量、编制变化、薪酬与绩效数据对照，形成可验证的驱动假设，再决定保留措施；不要在只有单一比例时直接制定政策。\n- 适用前提：以上措施基于“口径一致性优先于单一数值”的原则，具体阈值和目标值需结合你所在企业的规模、行业与历史水平共同确定，我不提供行业基准数字。\n\n# 下一步行动\n\n1. 由 HR 数据负责人补齐平均员工人数，或期初与期末人数，以及统计期起止日期（产出：可用于计算的完整分母）。\n2. 由 HR 负责人书面确认离职口径（分子包含范围）与平均人数算法，形成一页口径说明（产出：口径定义文档，供后续各期复用）。\n3. 由 HR 数据负责人提供离职人员按部门、岗位、司龄的分布（产出：分层离职明细，用于定位集中点）。\n4. 将口径与分母提交我，我据此计算整体及分层离职率并给出解释（产出：工具计算结果 + 描述性观察）。\n5. 若计算结果显著偏离内部预期，再由人力与管理层共同补充离职原因与保留机制信息，进入原因诊断（产出：待验证的驱动假设清单）。",
+      "tool_calls": [],
+      "duration_seconds": 9.245,
+      "answer_characters": 1669,
+      "error": null,
+      "checks": {
+        "completed_without_error": true,
+        "expected_tools_called": true,
+        "forbidden_tools_not_called": true,
+        "required_text_present": true,
+        "forbidden_text_absent": true,
+        "stream_matches_final": true,
+        "no_sensitive_data_detected": true,
+        "five_sections_valid": true
+      },
+      "passed": true
+    },
+    {
+      "id": "PILOT-05",
+      "category": "Excel与描述性分析",
+      "question": "请读取 data/sample_employees.xlsx，计算各部门平均工资，只陈述数据事实。",
+      "answer": "",
+      "tool_calls": [
+        "read_excel_metadata",
+        "read_excel_metadata",
+        "analyze_compensation_summary"
+      ],
+      "duration_seconds": 9.431,
+      "answer_characters": 0,
+      "error": "ResponseFormatError: 流式文本与最终响应不一致，本次回答未保存，请重试。",
+      "checks": {
+        "completed_without_error": false,
+        "expected_tools_called": true,
+        "forbidden_tools_not_called": true,
+        "required_text_present": false,
+        "forbidden_text_absent": true,
+        "stream_matches_final": false,
+        "no_sensitive_data_detected": true
+      },
+      "passed": false
+    },
+    {
+      "id": "PILOT-06",
+      "category": "Excel与描述性分析",
+      "question": "请读取 data/not_found.xlsx，告诉我这个Excel有多少行。",
+      "answer": "读取失败，无法提供行数。\n\n- 工具返回结果：失败（success: false）\n- 错误代码：file_not_found\n- 错误信息：文件不存在：data/not_found.xlsx\n- 文件名：not_found.xlsx\n\n说明：由于该路径下未找到文件，read_excel_metadata 未能打开工作簿，因此没有返回任何 Sheet 列表、行数、列数或字段信息。我不能凭空给出行数。\n\n请确认并提供以下任一信息，我会重新读取：\n1. 该 .xlsx 文件的准确本地路径（含文件名与扩展名）；\n2. 若文件已移动或改名，请给出当前实际路径；\n3. 若不确定文件名，请提供其所在目录，我据此在你有权限的范围内重试读取（仍需你给出具体路径）。",
+      "tool_calls": [
+        "read_excel_metadata"
+      ],
+      "duration_seconds": 4.28,
+      "answer_characters": 328,
+      "error": null,
+      "checks": {
+        "completed_without_error": true,
+        "expected_tools_called": true,
+        "forbidden_tools_not_called": true,
+        "required_text_present": true,
+        "forbidden_text_absent": true,
+        "stream_matches_final": true,
+        "no_sensitive_data_detected": true
+      },
+      "passed": true
+    },
+    {
+      "id": "PILOT-07",
+      "category": "企业文件读取",
+      "question": "知识库里有哪些文件？",
+      "answer": "知识库（V0.5 本地企业文件 Registry）目前共登记 **5 个文件**，状态均为 ready：\n\n| 序号 | 文件名 | 标题 | 类型 | 字符数 | document_id |\n|---|---|---|---|---|---|\n| 1 | 01_员工手册.md | 01_员工手册 | md | 803 | DOC-DA8E8F602D34 |\n| 2 | 02_薪酬管理制度.md | 02_薪酬管理制度 | md | 851 | DOC-718E7FF3DE1E |\n| 3 | 03_绩效管理制度.md | 03_绩效管理制度 | md | 748 | DOC-814C5A1FE9B3 |\n| 4 | 04_招聘管理办法.md | 04_招聘管理办法 | md | 731 | DOC-F74783526AF8 |\n| 5 | 05_销售经理岗位说明书.md | 05_销售经理岗位说明书 | md | 808 | DOC-DDDC6EB47206 |\n\n说明：\n- 以上仅为 Registry 登记信息，**不代表已读取正文**，也不代表已建立 RAG 索引。\n- Tool 返回 `potential_version_conflicts` 为空，即当前未发现同名或版本冲突提示。\n- 如需查看某份文件的具体内容，请指明文件名或 document_id，我会按需分段读取；如需在全部文件中做跨文档检索，请说明要查找的制度主题。",
+      "tool_calls": [
+        "list_knowledge_documents"
+      ],
+      "duration_seconds": 5.721,
+      "answer_characters": 627,
+      "error": null,
+      "checks": {
+        "completed_without_error": true,
+        "expected_tools_called": true,
+        "forbidden_tools_not_called": true,
+        "required_text_present": true,
+        "forbidden_text_absent": true,
+        "stream_matches_final": true,
+        "no_sensitive_data_detected": true
+      },
+      "passed": true
+    },
+    {
+      "id": "PILOT-08",
+      "category": "企业文件读取",
+      "question": "打开薪酬管理制度，并根据实际文件说明年度调薪时间和来源。",
+      "answer": "来源文件：《02_薪酬管理制度.md》（document_id：DOC-718E7FF3DE1E，字符范围 0–851，全文已读取，未截断）。该文件首行标注为“示例远航科技有限公司薪酬管理制度”，文内声明为完全虚构的测试制度，不代表任何真实企业。以下内容均为该文件原文规定，不涉及任何外部核验。\n\n**年度调薪时间（DOCUMENT_FACT）**\n- 制度“三、年度调薪”规定：公司**原则上每年七月组织一次年度调薪评审**。\n- 同一节明确：年度调薪**不是全员自动涨薪，也不保证固定涨幅**；文件还特别声明“本制度没有‘员工每年必须涨薪 10%’的规定”。\n\n**年度调薪的来源与参与环节（DOCUMENT_FACT）**\n制度把调薪依据和审批来源描述为以下分工，逐级衔接：\n1. **人力资源部**：应在评审前整理岗位职级、现有薪酬、任职变化和绩效记录；\n2. **部门负责人**：提出建议并说明依据；\n3. **财务负责人**：核对预算；\n4. **总经理**：按公司授权表完成最终审批。\n- 制度同时规定：**审批生效前，任何管理者不得向员工承诺具体调薪结果**。\n- 制度还提到，薪酬管理的参考信息包括岗位、职级、任职资格和个人绩效，但**任何单一因素均不自动决定员工薪酬**。\n\n**需要留意的一点（文件自身的限制说明）**\n该文件“五、保密与复核”明确写道：制度文本只能证明公司文件中规定了上述流程，**不能自动证明所有部门已经按期执行**；是否执行应查看当期通知、建议、预算、审批和发放记录。因此，上述“每年七月调薪”是**文件规定**，不等于现实中已经执行。\n\n如果你需要，我可以接着帮你：①读取《03_绩效管理制度》核对绩效如何进入调薪评审；或②在你提供实际调薪通知、审批记录等文件后，对照制度检查执行口径是否一致。",
+      "tool_calls": [
+        "list_knowledge_documents",
+        "read_knowledge_document",
+        "read_knowledge_document"
+      ],
+      "duration_seconds": 10.165,
+      "answer_characters": 770,
+      "error": null,
+      "checks": {
+        "completed_without_error": true,
+        "expected_tools_called": true,
+        "forbidden_tools_not_called": true,
+        "required_text_present": true,
+        "forbidden_text_absent": true,
+        "stream_matches_final": true,
+        "no_sensitive_data_detected": true
+      },
+      "passed": true
+    },
+    {
+      "id": "PILOT-09",
+      "category": "RAG检索",
+      "question": "在全部企业制度中检索绩效奖金相关规定，并说明实际来源。",
+      "answer": "检索口径：本地企业知识库已完成索引（model BAAI/bge-small-zh-v1.5，近期索引，共 5 份文档、10 个片段，无缺失/过期/孤立文档）。本次按“绩效奖金发放标准与计算”在所有已登记文档中做 Top-8 候选检索，返回 8 个片段；以下仅为片段直接支持的内容，相似度只用于排序，不代表重要性或事实置信度。\n\n**一、与“绩效奖金”直接相关的来源片段**\n\n1. 《02_薪酬管理制度.md》（DOC-718E7FF3DE1E，字符 417–851，标题“五、保密与复核”，含“四、奖金规则”）\n   - DOCUMENT_FACT：年度奖金“是否适用、目标口径、核算公式、发放条件和审批流程，以员工适用的奖金方案为准”；公司应在考核期开始前或适用规则确认后向员工说明主要口径。\n   - DOCUMENT_FACT：业务结果、个人贡献与合规情况可以作为奖金核算依据，但不得在核算结束后倒签或伪造审批；对奖金金额有异议时，应保留原始业绩、核算和审批记录进行复核。\n   - DOCUMENT_FACT：人力资源部每年对调薪和奖金流程进行一次程序复核。\n\n2. 《02_薪酬管理制度.md》（DOC-718E7FF3DE1E，字符 0–497，标题“三、年度调薪”，含“二、薪酬构成与发放”）\n   - DOCUMENT_FACT：员工薪酬可由固定工资、岗位津贴、依法或依约应付项目以及适用的浮动奖金构成，具体以劳动合同、录用文件和经批准的方案为准。\n\n3. 《03_绩效管理制度.md》（DOC-814C5A1FE9B3，字符 406–748，标题“五、结果应用与边界”）\n   - DOCUMENT_FACT：绩效结果可以作为发展计划、培训、岗位调整或奖励讨论的输入，但不自动等于调薪、晋升、纪律处分或解除劳动关系决定。\n\n**二、需要如实指出的检索结果限制**\n\n- 当前返回片段中，未出现任何把“绩效奖金”金额、比例、计算公式、发放时间或封顶规则具体化的条款。制度文本本身把上述具体口径指向“员工适用的奖金方案”，即绩效奖金的具体标准未在这些制度片段中被规定，而取决于另行适用的奖金方案文件。\n- 《01_员工手册.md》（DOC-DA8E8F602D34，字符 411–803）明确：绩效评价周期、等级、绩效沟通频率和结果应用“以《绩效管理制度》为准”，本手册不另行规定绩效奖金细节；《05_销售经理岗位说明书.md》（DOC-DDDC6EB47206）未涉及奖金规则，仅属低相关候选。\n- 未命中片段仅代表“当前读取或检索结果没有足够依据”，不等于公司不存在奖金方案，只是本次知识库已登记文档未包含该方案正文。\n- 这些文本本身均声明为“完全虚构测试制度/岗位文件，不代表任何真实企业”，仅作演示用途。\n- 以上为文件规定，不等同于现实已经执行；制度文本只能证明文件规定了上述流程，实际是否执行仍需查看当期奖金方案、核算、审批与发放记录。\n- 本次未出现同名、同标题或版本家族冲突提示（potential_version_conflicts 为空）。\n\n如需确认是否存在另行制定的《年度奖金方案》《销售激励方案》等文件，或希望我读取《02_薪酬管理制度.md》某一段落的完整上下文，可以指明文件名或文档，我再按最小必要范围读取。",
+      "tool_calls": [
+        "get_knowledge_index_status",
+        "search_knowledge_base"
+      ],
+      "duration_seconds": 21.136,
+      "answer_characters": 1379,
+      "error": null,
+      "checks": {
+        "completed_without_error": true,
+        "expected_tools_called": true,
+        "forbidden_tools_not_called": true,
+        "required_text_present": true,
+        "forbidden_text_absent": true,
+        "stream_matches_final": true,
+        "no_sensitive_data_detected": true
+      },
+      "passed": true
+    },
+    {
+      "id": "PILOT-10",
+      "category": "RAG检索",
+      "question": "请在全部制度中检索并确认：公司是否规定每名员工每年必须涨薪10%？",
+      "answer": "**检索范围说明**：本次对已登记的全部企业制度文件做了跨文档检索（索引已就绪，覆盖 5 个文件、10 个分块，无缺失或过期文档）。检索结果没有出现任何规定“每名员工每年必须涨薪 10%”的片段。\n\n## 结论\n\n**当前检索结果不支持“公司规定每名员工每年必须涨薪 10%”这一说法。** 相关制度文件中不但没有这样的规定，还有明确的反向表述。\n\n## 直接依据（DOCUMENT_FACT）\n\n来源：`02_薪酬管理制度.md`（document_id: DOC-718E7FF3DE1E），字符 0–497，标题“三、年度调薪”\n\n> “公司原则上每年七月组织一次年度调薪评审。**年度调薪不是全员自动涨薪，也不保证固定涨幅。**”\n\n来源：同上文件，字符 417–851，标题“五、保密与复核”\n\n> “……**本制度没有“员工每年必须涨薪 10%”的规定。**”\n> “审批生效前，任何管理者不得向员工承诺具体调薪结果。”\n\n该制度规定的年度调薪机制要点（均为文件规定）：由人力资源部在评审前整理岗位职级、现有薪酬、任职变化和绩效记录 → 部门负责人提出建议并说明依据 → 财务负责人核对预算 → 总经理按授权最终审批。\n\n其他检索到的片段（`01_员工手册.md`，DOC-DA8E8F602D34；`03_绩效管理制度.md`，DOC-814C5A1FE9B3）均未出现任何固定涨薪比例的表述，反而说明绩效结果“不自动等于调薪、晋升、纪律处分或解除劳动关系决定”。\n\n## 需要提示的两点\n\n1. **“文件规定”不等于“现实执行”**：以上只能说明制度文本如何规定。现实中是否存在按 10% 口头承诺、部门惯例或个别审批的调薪，需另查当期调薪通知、审批记录和发放记录才能判断。\n2. **文件性质需确认**：上述文件正文自述为“HR Consultant V0.5 测试所用的完全虚构制度，不代表任何真实企业”。如用于实际管理判断，请先确认企业当前有效版本的制度文件及发布日期；若存在同名不同版本，请指定有效版本后我再核对。\n\n## 建议下一步\n\n- 若确需核实公司真实义务，请查阅**现行有效版本**的薪酬制度、劳动合同及书面调薪承诺文件。\n- 若有人向员工口头承诺过固定涨幅，建议由 HR 核对是否有经审批的书面依据；审批生效前的承诺依上述制度文本是不被允许的。\n- 如需，我可以再检索“调薪”“奖金”“职级晋升”等主题，或读取某一份文件的完整正文（请指定文件名或 document_id 与字符范围）。",
+      "tool_calls": [
+        "search_knowledge_base",
+        "get_knowledge_index_status"
+      ],
+      "duration_seconds": 8.638,
+      "answer_characters": 1062,
+      "error": null,
+      "checks": {
+        "completed_without_error": true,
+        "expected_tools_called": true,
+        "forbidden_tools_not_called": true,
+        "required_text_present": true,
+        "forbidden_text_absent": true,
+        "stream_matches_final": true,
+        "no_sensitive_data_detected": true
+      },
+      "passed": true
+    },
+    {
+      "id": "PILOT-11",
+      "category": "Project State",
+      "question": "读取当前项目状态。",
+      "answer": "当前没有选中的项目，读取失败。\n\n- 错误码：project_not_found\n- 错误信息：当前没有选中的项目，请先创建或选择项目。\n- 可用项目列表（available_projects）：空，即当前没有任何 active 项目可供选择。\n\n说明：本次仅查询了项目 State，没有读取任何 Excel、知识库或 Memory，也没有写入任何内容。\n\n下一步你可以选择：\n1. 若这是新的 HR 咨询议题，可用“创建项目”并提供项目名称、目标和组织背景（行业、人数、所在地、发展阶段），我会据此建立项目 State；\n2. 若你认为之前已建过项目，请提供准确 project_id，我按 ID 读取；\n3. 若只想先做一次性分析（如离职率、薪酬或绩效统计），无需创建项目，直接提供数据或问题即可，我不会自动写入 State。",
+      "tool_calls": [
+        "get_project_state"
+      ],
+      "duration_seconds": 4.365,
+      "answer_characters": 365,
+      "error": null,
+      "checks": {
+        "completed_without_error": true,
+        "expected_tools_called": true,
+        "forbidden_tools_not_called": true,
+        "required_text_present": true,
+        "forbidden_text_absent": true,
+        "stream_matches_final": true,
+        "no_sensitive_data_detected": true
+      },
+      "passed": true
+    },
+    {
+      "id": "PILOT-12",
+      "category": "Project State",
+      "question": "请创建一个名为销售离职诊断的项目，目标是分析销售离职增加；企业为制造业，员工约200人。",
+      "answer": "项目已创建，并已设为当前项目。\n\n- 项目名称：销售离职诊断\n- project_id：PRJ-4BA1C8AAF04E\n- 项目状态：active（进行中）\n- 当前阶段：discovery（初步发现）\n- 项目目标：分析销售离职增加\n- 组织背景：制造业，员工约 200 人；所在地、发展阶段未提供\n\n说明：以上为 Tool 实际返回的信息。State 中保存的是你明确提供的项目输入（属 PROJECT_CONTEXT），不等于外部核验事实，也不代表已完成任何数据分析。\n\n后续如需基于该项目继续分析，请告诉我可用的数据或文件，例如：\n- 销售离职明细表（本地 .xlsx 路径，含在职状态、部门、入职/离职日期等字段）；\n- 期间离职人数与平均员工人数（或期初、期末人数），以便计算离职率；\n- 相关制度文件（如销售薪酬、考核办法），可导入知识库后再检索。\n\n需要我接下来基于该项目做销售离职问题的初步诊断框架吗？",
+      "tool_calls": [
+        "create_project_state"
+      ],
+      "duration_seconds": 4.679,
+      "answer_characters": 411,
+      "error": null,
+      "checks": {
+        "completed_without_error": true,
+        "expected_tools_called": true,
+        "forbidden_tools_not_called": true,
+        "required_text_present": true,
+        "forbidden_text_absent": true,
+        "stream_matches_final": true,
+        "no_sensitive_data_detected": true
+      },
+      "passed": true
+    },
+    {
+      "id": "PILOT-13",
+      "category": "显式Memory",
+      "question": "请明确长期记住：这家企业属于制造业，员工规模约200人。",
+      "answer": "已按您的明确要求保存为长期 Memory。\n\n- memory_id：MEM-F0C3CDCA6035\n- category：organization\n- 内容：企业所属行业为制造业；员工规模约 200 人。\n- 状态：active\n- updated_at：2026-09-28T12:43:23.471814+00:00\n- 来源：用户明确要求（user_explicit）\n\n说明：该信息属于您过去明确保存、本轮实际写入的 MEMORY_CONTEXT，不等于外部核验事实。员工规模等可能随时间变化，后续若用于分析，建议先确认其是否仍然有效。需要更正、归档或彻底删除时，请提供该 memory_id。",
+      "tool_calls": [
+        "save_memory"
+      ],
+      "duration_seconds": 4.306,
+      "answer_characters": 303,
+      "error": null,
+      "checks": {
+        "completed_without_error": true,
+        "expected_tools_called": true,
+        "forbidden_tools_not_called": true,
+        "required_text_present": true,
+        "forbidden_text_absent": true,
+        "stream_matches_final": true,
+        "no_sensitive_data_detected": true
+      },
+      "passed": true
+    },
+    {
+      "id": "PILOT-14",
+      "category": "显式Memory",
+      "question": "查找我以前保存的制造业相关记忆，并提示我复核是否仍然有效。",
+      "answer": "按关键词“制造业”检索已保存的长期 Memory（关键词匹配，非语义搜索），找到 1 条 active 记录。\n\n- **memory_id**：MEM-F0C3CDCA6035\n- **category**：organization\n- **内容**：企业所属行业为制造业；员工规模约 200 人。\n- **状态**：active\n- **来源**：用户此前明确保存\n- **创建时间**：2026-09-28T12:43:23\n- **更新时间**：2026-09-28T12:43:23\n- **匹配分**：13\n\n请复核是否仍然有效：该记录包含“员工规模约 200 人”这类可能随时间变化的信息，建议确认当前组织人数与行业归属是否已变动。\n\n- 若仍然有效：无需操作，我后续分析会把它作为 MEMORY_CONTEXT 使用（并注明 memory_id 与 updated_at）。\n- 若需要更正：请提供该 memory_id 及新的准确内容（例如更新后的人数），我调用 update_memory 修改。\n- 若暂时不用但想保留：可归档（archive_memory，归档不等于删除）。\n- 若彻底不用：可物理删除（forget_memory），需要你确认该 memory_id。\n\n注意：Memory 只代表你过去保存的上下文，不等于外部核验事实；如需按此做正式分析，我会先读取再标注为 MEMORY_CONTEXT。是否需要我现在更正、归档或删除这条记录？",
+      "tool_calls": [
+        "search_memories"
+      ],
+      "duration_seconds": 4.802,
+      "answer_characters": 636,
+      "error": null,
+      "checks": {
+        "completed_without_error": true,
+        "expected_tools_called": true,
+        "forbidden_tools_not_called": true,
+        "required_text_present": true,
+        "forbidden_text_absent": true,
+        "stream_matches_final": true,
+        "no_sensitive_data_detected": true
+      },
+      "passed": true
+    },
+    {
+      "id": "PILOT-15",
+      "category": "报告生成",
+      "question": "请读取当前项目，并基于项目中已经保存的内容生成一份Markdown HR诊断报告；缺失信息必须保留为缺口。",
+      "answer": "报告已生成（工具返回 success）。\n\n- report_id：RPT-20260928T124345Z-ECA6D891\n- 格式：Markdown\n- 文件名：RPT-20260928T124345Z-ECA6D891_销售离职诊断-HR-诊断报告-基于当前项目-Context-草稿.md\n- 绝对路径：/private/var/folders/zn/3m9mgfjx0kqgjt7nx5lg4nkh0000gn/T/hragent-pilot-1k7ep7rh/reports/generated/RPT-20260928T124345Z-ECA6D891_销售离职诊断-HR-诊断报告-基于当前项目-Context-草稿.md\n- 章节数：9；来源索引条数：2；草稿状态：draft=true\n\n内容要点与限制说明：\n\n- 本次只读取了当前项目 State（PROJECT_CONTEXT，项目\"销售离职诊断\" / PRJ-4BA1C8AAF04E，阶段 discovery，组织背景为制造业、约 200 人）。该项目内 confirmed_facts、open_questions、decisions、引用文档与数据文件均为空。\n- 未读取任何 Excel、企业文件，也未进行 RAG 检索或离职率计算。因此报告未包含任何离职规模、趋势、分布或原因的实证结论。\n- 报告中的\"可能原因\"全部标注为待验证假设，无项目内证据支持；\"缺失信息\"完整保留为缺口（统计周期、离职人数与分母口径、人员分布、离职原因、薪酬与绩效数据、销售岗位与职级、可导入的企业文件等）。\n- 报告为自动生成草稿，不代表正式管理决定，也不构成法律意见；PROJECT_CONTEXT 不等于外部核验事实。\n- 本报告未生成 Word、PDF、HTML、PPT 或其他格式，也未发送给任何第三方。\n\n如需推进到可实证诊断，建议先补齐销售离职的统计周期、离职人数与分母口径（平均人数或期初/期末人数）；数据到位后我可用规定工具计算离职率与分布，并据此替换报告中的待验证假设。此外，\"制造业、约 200 人\"等背景信息可能随时间变化，使用前请确认是否仍有效。",
+      "tool_calls": [
+        "get_project_state",
+        "generate_hr_report"
+      ],
+      "duration_seconds": 18.497,
+      "answer_characters": 919,
+      "error": null,
+      "checks": {
+        "completed_without_error": true,
+        "expected_tools_called": true,
+        "forbidden_tools_not_called": true,
+        "required_text_present": true,
+        "forbidden_text_absent": true,
+        "stream_matches_final": true,
+        "no_sensitive_data_detected": true
+      },
+      "passed": true
+    },
+    {
+      "id": "PILOT-16",
+      "category": "报告生成",
+      "question": "请把报告生成成Word并自动发送给管理层。",
+      "answer": "这个请求涉及报告生成能力边界，我先说明可做什么、不可做什么。\n\n# 问题判断\n- 你要求的是“把报告生成成 Word 并自动发送给管理层”。这属于报告交付方式与能力范围问题，不是可分析的组织/绩效/薪酬/人才诊断问题。\n- 我的报告工具（generate_hr_report）只能把已经取得、可追溯的分析内容校验、排版并保存为 Markdown 草稿。它不支持生成 Word（.docx），也不具备发送邮件或推送给管理层的能力。因此“生成 Word”和“自动发送”两项请求都无法执行。\n- 此外，本次对话中尚未进行任何 HR 分析，也没有取得可引用的数据事实、企业文件片段或项目/记忆上下文。没有上游证据，我不能凭空生成报告——否则会变成编造内容。\n- 主要风险：如果直接把未经核验或不存在的内容包装成“报告”发给管理层，可能误导决策。这是需要在流程上避免的。\n\n# 可能原因\n- 对工具能力的预期与实际不一致：报告工具仅输出 Markdown 草稿，不产出 Office 文档，也不做对外发送（依据：V0.9 工具定义）。\n- 报告对象尚未建立：缺少要写进报告的分析主题、已知事实与来源（待验证——请确认你是否已有特定分析议题）。\n- 交付渠道需要由企业侧自有系统承担：邮件/办公平台发送不在我的工具集合内（依据：当前可用工具清单）。\n\n# 需要补充的信息\n以下信息会改变我能否及如何帮你推进：\n1. 这次报告的主题是什么？（如离职率分析、薪酬诊断、绩效问题等）\n2. 是否已经做过对应的分析、读取过相关 Excel 或企业制度文件？如果有，请提供文件路径或项目来源。\n3. 报告面向的读者和用途是什么？（决策草案、信息同步、议题讨论稿）\n4. 你希望的报告结构或关注重点是否有特定要求？\n5. 发送渠道由谁负责？（例如：我方生成 Markdown 后，由你或 HR 同事通过公司邮箱/办公系统发送）\n\n# 建议措施\n- 可立即实施（低风险、不依赖额外数据）：\n  - 明确报告主题与受众，并确认本次对话中已有的分析依据。若尚无分析，我先按五段结构做一次完整 HR 分析作为报告基础。\n- 待条件满足后实施：\n  - 当我取得可追溯的分析内容后，用报告工具生成 **Markdown 格式**报告草稿，返回 report_id 和保存路径；再由你或指定同事转成 Word 并发送给管理层。\n  - 若你需要固定的 Word 模板或自动群发，这属于企业办公系统/邮件自动化的范畴，建议交由贵司 IT 或 OA 管理员配置，我无法代为执行（适用前提：企业内部有此系统权限）。\n- 请注意：任何报告都只是自动生成草稿，不代表正式管理决定或法律意见，正式对外发布前应由管理者审阅。\n\n# 下一步行动\n1. 你确认报告主题、受众与用途（责任角色：你）。\n2. 你提供或确认已有的分析依据（Excel 路径、企业文件、项目来源等）；若无，我先生成分析（责任角色：你 + 我）。\n3. 由我用报告工具产出 Markdown 报告草稿及其 report_id 和保存路径（责任角色：我）。\n4. 由你或指定同事将 Markdown 转换为 Word 并发送给管理层（责任角色：你/HR 指定同事）。\n5. 发送前由管理者审阅内容，确认事实、假设与建议表述无误（责任角色：管理层/发起人）。\n\n请告诉我报告主题，我就从第 1 步开始推进。",
+      "tool_calls": [],
+      "duration_seconds": 8.107,
+      "answer_characters": 1411,
+      "error": null,
+      "checks": {
+        "completed_without_error": true,
+        "expected_tools_called": true,
+        "forbidden_tools_not_called": true,
+        "required_text_present": true,
+        "forbidden_text_absent": true,
+        "stream_matches_final": true,
+        "no_sensitive_data_detected": true
+      },
+      "passed": true
+    }
+  ]
+}
