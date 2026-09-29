@@ -11,7 +11,11 @@ from typing import Any
 
 SENSITIVE_PATTERNS = (
     ("身份证号", re.compile(r"(?<!\d)\d{17}[\dXx](?!\d)"), "[身份证号已脱敏]"),
-    ("手机号", re.compile(r"(?<!\d)1[3-9]\d{9}(?!\d)"), "[手机号已脱敏]"),
+    (
+        "手机号",
+        re.compile(r"(?<![A-Za-z0-9])1[3-9]\d{9}(?![A-Za-z0-9])"),
+        "[手机号已脱敏]",
+    ),
     (
         "邮箱",
         re.compile(r"(?<![\w.])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![\w.])"),

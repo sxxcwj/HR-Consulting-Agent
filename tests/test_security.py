@@ -25,6 +25,11 @@ def test_detect_sensitive_labels_recurses_and_detects_credentials() -> None:
     assert detect_sensitive_labels(value) == ["密钥或凭据", "邮箱"]
 
 
+def test_phone_detector_ignores_digits_embedded_in_internal_ids() -> None:
+    assert detect_sensitive_labels("memory_id：MEM-15134033911F") == []
+    assert detect_sensitive_labels("员工手机号：15134033911") == ["手机号"]
+
+
 def test_atomic_write_text_is_private_and_leaves_no_temp_files(tmp_path) -> None:
     target = tmp_path / "private" / "state.json"
 

@@ -116,6 +116,13 @@ REGISTERED_TOOLS = [
     *MEMORY_TOOLS,
     *REPORT_TOOLS,
 ]
+# The OpenAI SDK eagerly JSON-parses strict function arguments when a stream
+# completes. DeepSeek can occasionally return truncated arguments; a retry with
+# non-strict transport metadata lets our existing validator return the error to
+# the model instead of crashing before tool execution.
+STREAMING_PARSE_FALLBACK_TOOLS = [
+    {**tool, "strict": False} for tool in REGISTERED_TOOLS
+]
 SIMPLE_TOOL_HANDLER_NAMES = {
     "read_excel_metadata": "read_excel_metadata",
     "register_knowledge_document": "register_document",
@@ -321,21 +328,27 @@ class HRConsultant:
     def _create_streamed_response(
         self,
         input_items: list[Any],
-        on_text_delta: Callable[[str], None],
-    ) -> Any:
-        """Consume one complete Responses API stream and return its final response."""
-        try:
+    ) -> tuple[Any, list[str]]:
+        """Consume one response stream and retain its text deltas for safe replay."""
+        def consume(tools: list[dict[str, Any]]) -> tuple[Any, list[str]]:
+            text_deltas: list[str] = []
             with self.client.responses.stream(
                 model=self.model,
                 instructions=AGENT_INSTRUCTIONS,
                 input=input_items,
-                tools=REGISTERED_TOOLS,
+                tools=tools,
                 parallel_tool_calls=False,
             ) as stream:
                 for event in stream:
                     if isinstance(event, ResponseTextDeltaEvent):
-                        on_text_delta(event.delta)
-                return stream.get_final_response()
+                        text_deltas.append(event.delta)
+                return stream.get_final_response(), text_deltas
+
+        try:
+            try:
+                return consume(REGISTERED_TOOLS)
+            except json.JSONDecodeError:
+                return consume(STREAMING_PARSE_FALLBACK_TOOLS)
         except AuthenticationError as exc:
             raise AgentError("DeepSeek API 认证失败，请检查 DEEPSEEK_API_KEY。") from exc
         except RateLimitError as exc:
@@ -499,11 +512,10 @@ class HRConsultant:
     def _request_streamed(
         self,
         messages: list[dict[str, str]],
-        on_text_delta: Callable[[str], None],
-    ) -> str:
-        """Run the existing tool loop while fully consuming every response stream."""
+    ) -> tuple[str, list[str]]:
+        """Run the tool loop and return only the final response round's deltas."""
         input_items: list[Any] = list(messages)
-        response = self._create_streamed_response(input_items, on_text_delta)
+        response, final_deltas = self._create_streamed_response(input_items)
         tool_call_count = 0
 
         while tool_calls := self._tool_calls(response):
@@ -529,13 +541,40 @@ class HRConsultant:
                 raise AgentError("模型返回了无效的工具调用响应，请重试。")
             input_items = [*input_items, *response_output, *tool_outputs]
             tool_call_count += len(tool_calls)
-            response = self._create_streamed_response(input_items, on_text_delta)
+            # Text emitted by a tool-calling round is planning commentary, not
+            # the final answer. Fully consume it but never expose it to users.
+            response, final_deltas = self._create_streamed_response(input_items)
 
         self.last_response = response
         result = getattr(response, "output_text", None)
         if not isinstance(result, str) or not result.strip():
             raise ResponseFormatError("模型未返回可用的文本内容，请重试。")
-        return result.strip()
+        return result.strip(), final_deltas
+
+    @staticmethod
+    def _visible_stream_text(deltas: list[str]) -> str:
+        """Normalize retained deltas exactly as they will be shown to users."""
+        parts: list[str] = []
+        visible_stream = _VisibleTextDelta(parts.append)
+        for delta in deltas:
+            visible_stream.feed(delta)
+        visible_stream.finish()
+        return visible_stream.text
+
+    @staticmethod
+    def _emit_validated_deltas(
+        deltas: list[str],
+        answer: str,
+        on_text_delta: Callable[[str], None],
+    ) -> None:
+        """Replay only a validated final answer, preserving provider delta boundaries."""
+        if not deltas:
+            on_text_delta(answer)
+            return
+        visible_stream = _VisibleTextDelta(on_text_delta)
+        for delta in deltas:
+            visible_stream.feed(delta)
+        visible_stream.finish()
 
     @staticmethod
     def _normalize_model_answer(answer: str) -> tuple[str, bool]:
@@ -629,30 +668,34 @@ class HRConsultant:
             on_text_delta(boundary)
             return self._commit_answer(pending, boundary)
 
-        visible_stream = _VisibleTextDelta(on_text_delta)
-        raw_answer = self._request_streamed(pending, visible_stream.feed)
+        raw_answer, final_deltas = self._request_streamed(pending)
         answer, needs_validation = self._normalize_model_answer(raw_answer)
-        visible_stream.finish()
-
-        if visible_stream.text != answer:
-            if not visible_stream.text:
-                # Some compatible providers may omit delta events while still
-                # returning a complete final response.
-                on_text_delta(answer)
-            else:
-                raise ResponseFormatError(
-                    "流式文本与最终响应不一致，本次回答未保存，请重试。"
-                )
-
         if needs_validation:
             try:
                 validate_analysis(answer)
             except ResponseFormatError:
-                # Once text has been displayed it cannot be replaced safely.
-                # Preserve the five-part contract by rejecting, not committing,
-                # a malformed streamed answer.
-                raise ResponseFormatError(
-                    "模型流式回复未遵循五部分结构，本次回答未保存，请重试。"
-                )
+                # Nothing has been displayed yet, so the same single repair
+                # used by non-streaming mode remains safe and invisible.
+                repair = [
+                    *pending,
+                    {"role": "assistant", "content": answer},
+                    {"role": "user", "content": FORMAT_REPAIR_INSTRUCTIONS},
+                ]
+                repaired, final_deltas = self._request_streamed(repair)
+                answer, needs_validation = self._normalize_model_answer(repaired)
+                if needs_validation:
+                    validate_analysis(answer)
+
+        streamed_text = self._visible_stream_text(final_deltas)
+        if streamed_text and streamed_text != answer:
+            raise ResponseFormatError(
+                "流式文本与最终响应不一致，本次回答未保存，请重试。"
+            )
+        if not streamed_text:
+            final_deltas = []
+
+        # Terminal output is irreversible. Emit only after the final round has
+        # passed prefix normalization and the applicable response contract.
+        self._emit_validated_deltas(final_deltas, answer, on_text_delta)
 
         return self._commit_answer(pending, answer)

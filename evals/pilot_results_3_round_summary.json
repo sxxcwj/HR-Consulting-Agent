@@ -1,0 +1,66 @@
+{
+  "pilot_type": "anonymous_synthetic_internal_pilot_remediation_validation",
+  "validation_date": "2026-09-29",
+  "case_set": "evals/pilot_cases.json",
+  "code_and_case_set_frozen_across_rounds": true,
+  "rounds": [
+    {
+      "round": 1,
+      "result_file": "evals/pilot_results_round_1.json",
+      "started_at": "2026-09-29T00:34:13.028512+00:00",
+      "completed_at": "2026-09-29T00:37:10.005870+00:00",
+      "passed": 16,
+      "failed": 0,
+      "expected_tool_hits": "12/12",
+      "forbidden_tool_calls": 0,
+      "average_duration_seconds": 9.969,
+      "max_duration_seconds": 18.678,
+      "sha256": "bf7bb66965fa702367f1b9f9b57e17f4e9e4f63bf9cf39e1ad4c398359d04c13"
+    },
+    {
+      "round": 2,
+      "result_file": "evals/pilot_results_round_2.json",
+      "started_at": "2026-09-29T00:37:14.742421+00:00",
+      "completed_at": "2026-09-29T00:39:46.013430+00:00",
+      "passed": 16,
+      "failed": 0,
+      "expected_tool_hits": "12/12",
+      "forbidden_tool_calls": 0,
+      "average_duration_seconds": 8.468,
+      "max_duration_seconds": 19.463,
+      "sha256": "e9b5d2adca07f1ef97bc8cccc6482f5f08a048cc40cd1e45aca2953d043789cf"
+    },
+    {
+      "round": 3,
+      "result_file": "evals/pilot_results_round_3.json",
+      "started_at": "2026-09-29T00:39:51.653203+00:00",
+      "completed_at": "2026-09-29T00:42:29.853878+00:00",
+      "passed": 16,
+      "failed": 0,
+      "expected_tool_hits": "12/12",
+      "forbidden_tool_calls": 0,
+      "average_duration_seconds": 8.841,
+      "max_duration_seconds": 21.499,
+      "sha256": "ef842b4a9645bdfeda6bb32ecc27d66bb574b752107bc387c337ca811a1998fe"
+    }
+  ],
+  "aggregate": {
+    "passed": 48,
+    "failed": 0,
+    "pass_rate": 1.0,
+    "expected_tool_hits": "36/36",
+    "expected_tool_hit_rate": 1.0,
+    "forbidden_tool_calls": 0,
+    "average_duration_seconds": 9.093,
+    "max_duration_seconds": 21.499,
+    "blocking_stream_failures": 0
+  },
+  "implementation_sha256": {
+    "src/agent.py": "cb298fd5de7e0237f0710576ca320ae8f4c007b770a9de184076e0f16b70d1fd",
+    "src/security.py": "57626a6260d580890479f83684d9a8c6160e1bf7d901b5bb0ffd2560a0585797",
+    "evals/pilot_cases.json": "c2c36917a0c3f84c86d6a94a70a7d720527769114629809422e0cd34c9aa90fb",
+    "evals/pilot_runner.py": "bede1a93d7af9f74ee45d50aad5e1061caa55ea65319494d1f4be5ef5b0ce6a3"
+  },
+  "decision": "P0_REMEDIATION_VALIDATED_ELIGIBLE_FOR_AUTHORIZED_ANONYMIZED_REAL_PILOT",
+  "production_release_decision": "NO_GO_PENDING_ENTERPRISE_CONTROLS_AND_REAL_USER_PILOT"
+}

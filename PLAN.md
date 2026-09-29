@@ -528,7 +528,7 @@ python -m src.main
 
 **Tests**：新增 7 项流式测试和 1 项终端颜色测试，覆盖普通问答、Tool Call、无需 Tool、工具参数错误、流式/非流式最终文本一致、最终响应保留、内部事件/前缀隐藏、中断错误，以及青色输入/绿色输出的 ANSI 边界（部分断言合并于同一案例）；流式专项 `7 passed`，CLI/流式/错误专项合计 `25 passed`，完整离线回归 `257 passed, 21 deselected`，完整在线回归最终复验 `21 passed, 256 deselected`。真实 CLI 通过离职率工具链得到平均人数 190、离职率 15.79%，并以五部分自然语言流式显示。首次在线全量运行有 1 项模型随机格式漂移，单项复验与第二次全量复验均通过；终端颜色只涉及本地显示层，因此未重复调用在线模型。
 
-**Known Limitations**：终端已经显示的流式文字无法撤回；若模型最终内容不符合固定结构，程序会停止本轮、不给会话历史提交该回答，并提示重试。Streaming 不改变模型本身可能出现的随机格式波动。
+**Known Limitations**：终端已经显示的流式文字无法撤回，因此当前实现会先完整识别最终轮并完成适用的结构校验，再按保留的文本 delta 显示；这增加首字等待，但避免中间规划文本或无效格式泄露。Streaming 不改变模型本身可能出现的随机格式波动。
 
 ## M19 Anonymous Production Readiness Pilot
 
@@ -555,4 +555,30 @@ git diff --check
 
 **Tests**：试点评估器专项 `2 passed`；完整离线回归 `259 passed, 21 deselected`；`src/`、`tests/`、`evals/` 编译通过；三个试点 JSON 文件解析通过；试点产物凭据模式扫描和 `git diff --check` 通过。
 
-**Known Limitations**：这是匿名化合成内部试点，不是实际客户试点；未采集真实使用者评分或第二评审意见。两个流式输出 P0 缺陷尚未修复，生产决策为 NO-GO。
+**Known Limitations**：这是匿名化合成内部试点，不是实际客户试点；未采集真实使用者评分或第二评审意见。本 Milestone 发现的两个流式输出 P0 在 M20 中完成修复和连续三轮复验；企业生产决策仍为 NO-GO。
+
+## M20 P0 Streaming Remediation and Revalidation
+
+**Objective**：关闭匿名化模拟试点发现的两个流式 P0，并在冻结代码与案例契约下完成相同 16 案例连续三轮、48/48 无阻断失败验证；不新增业务能力。
+
+**Tasks**：隔离工具调用中间轮文本；恢复流式模式的一次格式修复；保留并校验最终 Response 与可见文本；处理 DeepSeek 严格 Function Tool 参数的 SDK 解析异常；消除内部 ID 被误判为手机号；强化确定性试点契约；执行三轮真实模型试点和完整回归。
+
+**Files**：`src/agent.py`、`src/security.py`、`tests/test_streaming.py`、`tests/test_security.py`、`evals/pilot_runner.py`、`evals/pilot_cases.json`、`tests/test_pilot_evaluation.py`、三轮结果与汇总、相关规格和发布评估文档。
+
+**Acceptance Criteria**：工具中间轮文本不可见；首轮结构错误在显示前完成一次修复；修复失败时零显示、零提交；最终流文本等于返回答案；严格参数解析异常可受控恢复；三轮 48/48 通过、预期 Tool 命中率 100%、禁止 Tool 0；完整回归通过。
+
+**Validation Command**：
+
+```bash
+python -m pytest -q tests/test_streaming.py tests/test_security.py tests/test_pilot_evaluation.py
+python -m pytest -q
+python -m compileall -q src tests evals
+```
+
+**Status**：DONE
+
+**Implemented**：每轮流先完整消费并保留 delta，工具调用轮文本丢弃；最终回答完成前缀处理和结构校验后才显示；格式不合格时在未显示前执行一次修复；SDK 严格 JSON 解析失败时仅进行一次非严格传输元数据兼容重试，业务参数仍由本地验证；手机号规则不再匹配嵌入字母数字内部 ID 的数字片段。评测器增加可审计的边界正则契约，并强化薪酬统计固定值检查。
+
+**Tests**：流式、安全和试点评估专项 `19 passed`；完整离线回归 `266 passed, 21 deselected`；`src/`、`tests/`、`evals/` 编译通过；全部试点 JSON 解析通过。真实模型连续三轮均为 16/16，合计 48/48，预期 Tool 36/36，禁止 Tool 0，平均耗时 9.093 秒，最大耗时 21.499 秒。
+
+**Known Limitations**：结构与最终轮安全门增加首字等待；格式修复可能重复执行确定性只读或计算 Tool。48/48 只证明当前匿名化合成试点门槛已通过，不替代授权真实用户试点或企业级安全治理。

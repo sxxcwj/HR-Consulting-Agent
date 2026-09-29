@@ -10,6 +10,7 @@ import argparse
 import json
 import os
 import platform
+import re
 import sys
 import tempfile
 import time
@@ -51,12 +52,17 @@ def _evaluate_case(
     forbidden = set(case.get("forbidden_tools", []))
     actual = set(tool_calls)
     required_groups = case.get("required_any", [])
+    required_patterns = case.get("required_patterns", [])
     checks = {
         "completed_without_error": error is None,
         "expected_tools_called": expected.issubset(actual),
         "forbidden_tools_not_called": actual.isdisjoint(forbidden),
         "required_text_present": all(
             any(str(term) in answer for term in group) for group in required_groups
+        ),
+        "required_patterns_present": all(
+            re.search(str(pattern), answer, flags=re.IGNORECASE | re.DOTALL) is not None
+            for pattern in required_patterns
         ),
         "forbidden_text_absent": all(
             str(term) not in answer for term in case.get("forbidden_text", [])

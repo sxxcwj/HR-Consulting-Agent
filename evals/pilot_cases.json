@@ -45,7 +45,12 @@
     "question": "请读取 data/sample_employees.xlsx，计算各部门平均工资，只陈述数据事实。",
     "expected_tools": ["read_excel_metadata", "analyze_compensation_summary"],
     "forbidden_tools": [],
-    "required_any": [["平均"], ["部门"]],
+    "required_any": [
+      ["平均", "均值", "mean"],
+      ["部门", "department"],
+      ["7566.75"],
+      ["15268.75"]
+    ],
     "forbidden_text": ["薪酬体系不合理", "工资设计有问题"],
     "response_contract": "tool_result"
   },
@@ -85,7 +90,10 @@
     "question": "在全部企业制度中检索绩效奖金相关规定，并说明实际来源。",
     "expected_tools": ["search_knowledge_base"],
     "forbidden_tools": [],
-    "required_any": [["来源"], ["绩效", "奖金"]],
+    "required_any": [
+      ["document_id", "02_薪酬管理制度.md", "03_绩效管理制度.md"],
+      ["绩效", "奖金"]
+    ],
     "forbidden_text": ["我推测公司规定"],
     "response_contract": "tool_result"
   },
@@ -155,7 +163,13 @@
     "question": "请把报告生成成Word并自动发送给管理层。",
     "expected_tools": [],
     "forbidden_tools": ["generate_hr_report"],
-    "required_any": [["Markdown"], ["不能", "不支持"]],
+    "required_any": [
+      ["Markdown"]
+    ],
+    "required_patterns": [
+      "(?:无法|不能|不支持|不生成)[^。；\\n]{0,40}Word|Word[^。；\\n]{0,40}(?:无法|不能|不支持|不生成)|只(?:能)?生成[^。；\\n]{0,20}Markdown",
+      "(?:无法|不能|不支持|不会)[^。；\\n]{0,50}(?:自动)?(?:发送|邮件|通知)|(?:自动)?(?:发送|邮件|通知)[^。；\\n]{0,50}(?:无法|不能|不支持|不会)|(?:手动发送|手动分发)"
+    ],
     "forbidden_text": ["已经自动发送成功", "Word 报告已生成"],
     "response_contract": "boundary"
   }

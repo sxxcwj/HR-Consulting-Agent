@@ -10,7 +10,13 @@ from typing import Any
 import pytest
 from openai.types.responses import ResponseTextDeltaEvent
 
-from src.agent import AgentError, HRConsultant
+from src.agent import (
+    AgentError,
+    HRConsultant,
+    REGISTERED_TOOLS,
+    ResponseFormatError,
+    STREAMING_PARSE_FALLBACK_TOOLS,
+)
 from src.main import run
 
 from .conftest import FakeClient, VALID_ANALYSIS
@@ -144,6 +150,92 @@ def test_streaming_tool_call_completes_and_hides_tool_events() -> None:
     tool_result = json.loads(client.responses.calls[1]["input"][-1]["output"])
     assert tool_result["turnover_rate"] == 15.79
     assert "call_turnover_stream" not in "".join(chunks)
+
+
+def test_tool_round_planning_text_is_consumed_but_not_emitted() -> None:
+    planning_text = "我先调用工具核实人数，再给出最终分析。"
+    planning_events, _ = _text_stream(planning_text)
+    tool_response = _function_call(
+        {
+            "leavers": 30,
+            "average_headcount": None,
+            "starting_headcount": 200,
+            "ending_headcount": 180,
+        }
+    )
+    tool_response.output_text = planning_text
+    final_events, final_response = _text_stream(VALID_ANALYSIS)
+    client = _FakeStreamingClient(
+        [(planning_events, tool_response), (final_events, final_response)]
+    )
+    agent = HRConsultant(client=client)  # type: ignore[arg-type]
+    chunks: list[str] = []
+
+    answer = agent.ask_streamed(
+        "公司年初200人，年末180人，全年离职30人，离职率是多少？",
+        on_text_delta=chunks.append,
+    )
+
+    assert answer == VALID_ANALYSIS.strip()
+    assert "".join(chunks) == answer
+    assert planning_text not in "".join(chunks)
+    assert agent.last_tool_calls == ["calculate_turnover_rate"]
+
+
+def test_malformed_stream_is_repaired_before_any_text_is_emitted() -> None:
+    malformed = "DATA FACT：工具结果如下。\n\n- 多余前言。\n\n" + VALID_ANALYSIS
+    malformed_events, malformed_response = _text_stream(malformed)
+    repaired_events, repaired_response = _text_stream(VALID_ANALYSIS)
+    client = _FakeStreamingClient(
+        [
+            (malformed_events, malformed_response),
+            (repaired_events, repaired_response),
+        ]
+    )
+    agent = HRConsultant(client=client)  # type: ignore[arg-type]
+    chunks: list[str] = []
+
+    answer = agent.ask_streamed("离职率是多少？", on_text_delta=chunks.append)
+
+    assert answer == VALID_ANALYSIS.strip()
+    assert "".join(chunks) == answer
+    assert "多余前言" not in "".join(chunks)
+    assert len(client.responses.calls) == 2
+    assert agent.last_response is repaired_response
+    assert agent.history[-1]["content"] == answer
+
+
+def test_repeated_malformed_stream_is_not_emitted_or_committed() -> None:
+    first_events, first_response = _text_stream("第一次坏格式")
+    second_events, second_response = _text_stream("第二次仍然坏格式")
+    client = _FakeStreamingClient(
+        [(first_events, first_response), (second_events, second_response)]
+    )
+    agent = HRConsultant(client=client)  # type: ignore[arg-type]
+    chunks: list[str] = []
+
+    with pytest.raises(ResponseFormatError):
+        agent.ask_streamed("招聘困难怎么办？", on_text_delta=chunks.append)
+
+    assert chunks == []
+    assert agent.history == []
+
+
+def test_strict_stream_argument_parse_error_retries_with_manual_validation() -> None:
+    events, final_response = _text_stream(VALID_ANALYSIS)
+    client = _FakeStreamingClient(
+        [json.JSONDecodeError("bad tool json", "{", 1), (events, final_response)]
+    )
+    agent = HRConsultant(client=client)  # type: ignore[arg-type]
+    chunks: list[str] = []
+
+    answer = agent.ask_streamed("招聘困难怎么办？", on_text_delta=chunks.append)
+
+    assert answer == VALID_ANALYSIS.strip()
+    assert "".join(chunks) == answer
+    assert client.responses.calls[0]["tools"] == REGISTERED_TOOLS
+    assert client.responses.calls[1]["tools"] == STREAMING_PARSE_FALLBACK_TOOLS
+    assert all(tool["strict"] is False for tool in client.responses.calls[1]["tools"])
 
 
 def test_tool_validation_error_is_returned_to_model_without_breaking_stream() -> None:
