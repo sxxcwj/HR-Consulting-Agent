@@ -250,3 +250,7 @@ python -m pytest -q
 ## V1.0 发布边界
 
 V1.0 RC 是本地单用户试点版本，不等于已经完成生产级安全、法务和隐私合规认证。它没有数据库、Web UI、多 Agent、MCP、云同步、多人权限、审计服务、加密密钥管理或自动人事决策。正式处理真实员工数据前，应由企业确认数据授权、最小化范围、DeepSeek API 数据政策、保存期限、设备权限和删除流程。发布检查见 `RELEASE_V1.0.md`，匿名化试点方案见 `PILOT_PLAN.md`。
+
+## License
+
+本项目采用 MIT 许可证，详见 [LICENSE](LICENSE)。Copyright (c) 2026 sxxcwj。
