@@ -1,6 +1,6 @@
 # HR Consultant V1.0 发布计划
 
-本计划依据 `AGENTS.md`、`PRODUCT_SPEC.md`、`AGENT_SPEC.md` 和 `WORKFLOW.md`。V0.1 按 M1 → M8 完成，V0.2 当前只执行 M9；每次只实施用户指定的当前 Milestone。以下 `Files` 是计划在相应阶段创建或修改的文件，`Validation Command` 是该阶段实施后的目标命令；本计划本身不表示这些文件或命令现在已经可用。
+本计划依据 `AGENTS.md`、`PRODUCT_SPEC.md`、`AGENT_SPEC.md` 和 `WORKFLOW.md`。V0.1 按 M1 → M8 完成，后续版本按对应 Milestone 增量实现；每次只实施用户指定的当前 Milestone。当前维护范围为 M21 开发复盘、现有功能加固与操作手册，不新增业务能力。以下 `Files` 是计划在相应阶段创建或修改的文件，`Validation Command` 是该阶段实施后的目标命令；运行证据以各阶段 Tests 与留存结果为准。
 
 状态只允许使用 `TODO`、`IN_PROGRESS`、`DONE`。开始某项工作时将其改为 `IN_PROGRESS`；其 Acceptance Criteria 和验证全部通过后才改为 `DONE`。未完成的验证应保持 `IN_PROGRESS` 并记录原因，不以文档或测试存在代替运行结果。实际代码文件名如需调整，应保持模块职责和验收范围不变，并同步更新本计划。
 
@@ -581,4 +581,31 @@ python -m compileall -q src tests evals
 
 **Tests**：流式、安全和试点评估专项 `19 passed`；完整离线回归 `266 passed, 21 deselected`；`src/`、`tests/`、`evals/` 编译通过；全部试点 JSON 解析通过。真实模型连续三轮均为 16/16，合计 48/48，预期 Tool 36/36，禁止 Tool 0，平均耗时 9.093 秒，最大耗时 21.499 秒。
 
-**Known Limitations**：结构与最终轮安全门增加首字等待；格式修复可能重复执行确定性只读或计算 Tool。48/48 只证明当前匿名化合成试点门槛已通过，不替代授权真实用户试点或企业级安全治理。
+**Known Limitations**：结构与最终轮安全门增加首字等待；M20 当时格式修复仍可能再次执行 Tool，已在 M21 禁用并保留原工具依据。48/48 只证明 M20 冻结代码的匿名化合成试点门槛已通过，不替代新代码复验、授权真实用户试点或企业级安全治理。
+
+## M21 Development Retrospective and Operations Manual
+
+**Objective**：梳理 V0.1—V1.0 开发过程、完善现有工具编排的格式修复与失败恢复，并交付可照做的开发操作手册。
+
+**Tasks**：核对规格、代码和历史验收证据；禁止格式修复重复执行 Tool；保留原始工具依据；将兼容重试耗尽映射为安全错误；补充回归；核验启动、安装、离线与在线测试；形成版本演进、架构、开发、测试、评测、发布和排障手册。
+
+**Files**：`src/agent.py`、`tests/test_agent.py`、`tests/test_streaming.py`、`DEVELOPMENT_MANUAL.md`、`README.md`、相关规格、`PLAN.md`、本次验收证据。
+
+**Acceptance Criteria**：格式修复不再产生重复 Tool 副作用且能使用既有证据；修复违规与重复解析错误可控；现有回归通过；手册命令与实际代码一致，区分历史验收和本次验证，不宣称已完成企业生产准入。
+
+**Validation Command**：
+
+```bash
+python -m pytest -q tests/test_agent.py tests/test_streaming.py
+python -m pytest -q
+python -m pytest -q -m live
+python -m compileall -q src tests evals
+```
+
+**Status**：DONE
+
+**Implemented**：梳理 V0.1—V1.0 的需求、代码、Git 与验收过程，形成 `DEVELOPMENT_MANUAL.md`；格式修复保留本轮已取得工具证据，API 层与本地循环同时禁用修复阶段 Tool 执行，避免重复写入；修复后的正式分析仍须五段校验；流式参数兼容重试耗尽映射为安全错误且可重新提问。没有增加业务 Tool、修改 Prompt 或引入新架构。README 增加手册入口与安全密钥配置，规格和工作流同步约束，安装包已重新构建安装。
+
+**Tests**：新增7项回归；相关专项35项通过；完整离线 `273 passed, 21 deselected`；完整真实 API `21 passed, 273 deselected`，无跳过。源码、安装 CLI 与项目外目录启动/退出通过；项目外安装 CLI 实际离职率 Tool 链取得190与15.79%。`compileall`、`pip check`、文档引用/JSON/凭据模式检查、`git diff --check`通过。本次16案例首轮15/16，PILOT-16明确拒绝Word和发送但同义表述未匹配旧正则；保留原FAIL，未改题或标准。同一代码/标准完整复验16/16、Tool12/12、禁止Tool0。证据：`evals/pilot_results_m21.json`、`evals/pilot_results_m21_retest.json`、`evals/m21_validation_summary.json`。
+
+**Known Limitations**：流式先缓存校验再显示；失败回答不会回滚之前已成功的持久化Tool；项目Skill仍为Codex方法包，不由Python自动加载；自动契约是字面检查，尚有同义拒绝漏识别。M20历史48/48不覆盖本次新代码，本次未执行新的连续三轮，也未启动真实业务试点。生产仍为NO-GO，后续需重新冻结代码执行三轮门槛，并取得业务授权与独立人工复核；完整本次测试环境为macOS/Python3.13。

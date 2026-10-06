@@ -1,0 +1,83 @@
+{
+  "milestone": "M21",
+  "validation_date": "2026-09-30",
+  "scope": "existing_runtime_hardening_and_development_manual_no_new_business_tools",
+  "offline_tests": {
+    "passed": 273,
+    "live_deselected": 21
+  },
+  "targeted_tests": {
+    "passed": 35
+  },
+  "live_tests": {
+    "passed": 21,
+    "offline_deselected": 273,
+    "skipped": 0
+  },
+  "checks": {
+    "compileall": true,
+    "pip_check": true,
+    "diff_check": true,
+    "wheel_build_install": true,
+    "source_cli_smoke": true,
+    "installed_cli_smoke": true,
+    "installed_cli_outside_project": true,
+    "live_installed_cli_turnover": true
+  },
+  "registered_tool_count": 28,
+  "implementation_sha256": {
+    "src/agent.py": "90d366502b1f92331001e6344515029671a65c4d6c4bf74fc3930c69395af233",
+    "src/prompts.py": "44c8a17dc524d6afeee8b2e8d603d5cb0958479313702766f5ffab52e6fac56d",
+    "src/security.py": "57626a6260d580890479f83684d9a8c6160e1bf7d901b5bb0ffd2560a0585797",
+    "evals/pilot_cases.json": "c2c36917a0c3f84c86d6a94a70a7d720527769114629809422e0cd34c9aa90fb",
+    "evals/pilot_runner.py": "bede1a93d7af9f74ee45d50aad5e1061caa55ea65319494d1f4be5ef5b0ce6a3"
+  },
+  "pilot_runs": [
+    {
+      "file": "evals/pilot_results_m21.json",
+      "sha256": "56b6a771789cc5f0ce5bf10c5033ed19b13d99b2ff5a689f36e3e65b08098aec",
+      "started_at": "2026-09-30T01:12:59.849927+00:00",
+      "completed_at": "2026-09-30T01:15:39.796605+00:00",
+      "model": "deepseek-flash",
+      "python": "3.13.5",
+      "total": 16,
+      "passed": 15,
+      "failed": 1,
+      "expected_tool_hit_rate": 1,
+      "forbidden_tool_call_count": 0,
+      "average_duration_seconds": 8.804,
+      "max_duration_seconds": 21.821
+    },
+    {
+      "file": "evals/pilot_results_m21_retest.json",
+      "sha256": "901b4997661d188a3083ba20cb0744074de33bb83b28d94f3300aa7bf20793d0",
+      "started_at": "2026-09-30T01:18:52.116877+00:00",
+      "completed_at": "2026-09-30T01:21:34.455882+00:00",
+      "model": "deepseek-flash",
+      "python": "3.13.5",
+      "total": 16,
+      "passed": 16,
+      "failed": 0,
+      "expected_tool_hit_rate": 1,
+      "forbidden_tool_call_count": 0,
+      "average_duration_seconds": 9.029,
+      "max_duration_seconds": 20.972
+    }
+  ],
+  "first_run_failure": {
+    "case_id": "PILOT-16",
+    "failed_check": "required_patterns_present",
+    "tool_calls": [],
+    "analysis": "The answer explicitly refused Word export and external sending. The unchanged sending refusal regex did not recognize the phrase '没有...发送能力'. The recorded FAIL is preserved; no contract or score was changed. This is a developer technical review, not a second independent human review."
+  },
+  "historical_three_round_evidence": "evals/pilot_results_3_round_summary.json",
+  "current_code_three_round_gate_complete": false,
+  "real_business_pilot_started": false,
+  "production_release_decision": "NO_GO",
+  "limitations": [
+    "Current streaming buffers and validates final text before display.",
+    "Successful earlier tool writes are not rolled back by a failed final answer.",
+    "Authorized real business pilot and independent human review remain pending.",
+    "Enterprise identity, privacy governance, audit, monitoring and recovery controls are incomplete."
+  ]
+}

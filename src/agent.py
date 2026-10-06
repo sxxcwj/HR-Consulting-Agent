@@ -296,14 +296,15 @@ class HRConsultant:
         self.last_tool_calls: list[str] = []
         self.last_response: Any | None = None
         self.last_final_output: str | None = None
+        self._last_request_input: list[Any] = []
 
-    def _create_response(self, input_items: list[Any]) -> Any:
+    def _create_response(self, input_items: list[Any], *, allow_tools: bool = True) -> Any:
         try:
             return self.client.responses.create(
                 model=self.model,
                 instructions=AGENT_INSTRUCTIONS,
                 input=input_items,
-                tools=REGISTERED_TOOLS,
+                tools=REGISTERED_TOOLS if allow_tools else [],
                 parallel_tool_calls=False,
             )
         except AuthenticationError as exc:
@@ -328,6 +329,8 @@ class HRConsultant:
     def _create_streamed_response(
         self,
         input_items: list[Any],
+        *,
+        allow_tools: bool = True,
     ) -> tuple[Any, list[str]]:
         """Consume one response stream and retain its text deltas for safe replay."""
         def consume(tools: list[dict[str, Any]]) -> tuple[Any, list[str]]:
@@ -346,9 +349,11 @@ class HRConsultant:
 
         try:
             try:
-                return consume(REGISTERED_TOOLS)
+                return consume(REGISTERED_TOOLS if allow_tools else [])
             except json.JSONDecodeError:
-                return consume(STREAMING_PARSE_FALLBACK_TOOLS)
+                return consume(STREAMING_PARSE_FALLBACK_TOOLS if allow_tools else [])
+        except json.JSONDecodeError as exc:
+            raise AgentError("模型返回的流式工具参数无法解析，本次生成已停止，请重试。") from exc
         except AuthenticationError as exc:
             raise AgentError("DeepSeek API 认证失败，请检查 DEEPSEEK_API_KEY。") from exc
         except RateLimitError as exc:
@@ -471,12 +476,14 @@ class HRConsultant:
             }
         return {"error": f"不支持的工具：{name or '未命名工具'}。"}
 
-    def _request(self, messages: list[dict[str, str]]) -> str:
+    def _request(self, messages: list[Any], *, allow_tools: bool = True) -> str:
         input_items: list[Any] = list(messages)
-        response = self._create_response(input_items)
+        response = self._create_response(input_items, allow_tools=allow_tools)
         tool_call_count = 0
 
         while tool_calls := self._tool_calls(response):
+            if not allow_tools:
+                raise ResponseFormatError("格式修复阶段不允许调用工具，本次回答未保存，请重试。")
             if tool_call_count + len(tool_calls) > MAX_TOOL_CALLS_PER_REQUEST:
                 raise AgentError("模型请求了过多工具调用，本次分析已停止，请重试。")
 
@@ -501,8 +508,9 @@ class HRConsultant:
                 raise AgentError("模型返回了无效的工具调用响应，请重试。")
             input_items = [*input_items, *response_output, *tool_outputs]
             tool_call_count += len(tool_calls)
-            response = self._create_response(input_items)
+            response = self._create_response(input_items, allow_tools=allow_tools)
 
+        self._last_request_input = list(input_items)
         self.last_response = response
         result = getattr(response, "output_text", None)
         if not isinstance(result, str) or not result.strip():
@@ -511,14 +519,18 @@ class HRConsultant:
 
     def _request_streamed(
         self,
-        messages: list[dict[str, str]],
+        messages: list[Any],
+        *,
+        allow_tools: bool = True,
     ) -> tuple[str, list[str]]:
         """Run the tool loop and return only the final response round's deltas."""
         input_items: list[Any] = list(messages)
-        response, final_deltas = self._create_streamed_response(input_items)
+        response, final_deltas = self._create_streamed_response(input_items, allow_tools=allow_tools)
         tool_call_count = 0
 
         while tool_calls := self._tool_calls(response):
+            if not allow_tools:
+                raise ResponseFormatError("格式修复阶段不允许调用工具，本次回答未保存，请重试。")
             if tool_call_count + len(tool_calls) > MAX_TOOL_CALLS_PER_REQUEST:
                 raise AgentError("模型请求了过多工具调用，本次分析已停止，请重试。")
 
@@ -543,8 +555,9 @@ class HRConsultant:
             tool_call_count += len(tool_calls)
             # Text emitted by a tool-calling round is planning commentary, not
             # the final answer. Fully consume it but never expose it to users.
-            response, final_deltas = self._create_streamed_response(input_items)
+            response, final_deltas = self._create_streamed_response(input_items, allow_tools=allow_tools)
 
+        self._last_request_input = list(input_items)
         self.last_response = response
         result = getattr(response, "output_text", None)
         if not isinstance(result, str) or not result.strip():
@@ -626,6 +639,7 @@ class HRConsultant:
         self.last_tool_calls = []
         self.last_response = None
         self.last_final_output = None
+        self._last_request_input = []
         if boundary := management_boundary_message(question):
             pending = [*self.history, {"role": "user", "content": question.strip()}]
             return self._commit_answer(pending, boundary)
@@ -637,16 +651,16 @@ class HRConsultant:
             try:
                 validate_analysis(answer)
             except ResponseFormatError:
-                # One repair attempt avoids showing an incomplete analysis to the user.
+                # Keep acquired evidence, but never repeat side effects just to
+                # repair formatting. This context is local to the current run.
                 repair = [
-                    *pending,
+                    *self._last_request_input,
                     {"role": "assistant", "content": answer},
                     {"role": "user", "content": FORMAT_REPAIR_INSTRUCTIONS},
                 ]
-                repaired = self._request(repair)
-                answer, needs_validation = self._normalize_model_answer(repaired)
-                if needs_validation:
-                    validate_analysis(answer)
+                repaired = self._request(repair, allow_tools=False)
+                answer, _ = self._normalize_model_answer(repaired)
+                validate_analysis(answer)
 
         return self._commit_answer(pending, answer)
 
@@ -663,6 +677,7 @@ class HRConsultant:
         self.last_tool_calls = []
         self.last_response = None
         self.last_final_output = None
+        self._last_request_input = []
         pending = [*self.history, {"role": "user", "content": question.strip()}]
         if boundary := management_boundary_message(question):
             on_text_delta(boundary)
@@ -677,14 +692,13 @@ class HRConsultant:
                 # Nothing has been displayed yet, so the same single repair
                 # used by non-streaming mode remains safe and invisible.
                 repair = [
-                    *pending,
+                    *self._last_request_input,
                     {"role": "assistant", "content": answer},
                     {"role": "user", "content": FORMAT_REPAIR_INSTRUCTIONS},
                 ]
-                repaired, final_deltas = self._request_streamed(repair)
-                answer, needs_validation = self._normalize_model_answer(repaired)
-                if needs_validation:
-                    validate_analysis(answer)
+                repaired, final_deltas = self._request_streamed(repair, allow_tools=False)
+                answer, _ = self._normalize_model_answer(repaired)
+                validate_analysis(answer)
 
         streamed_text = self._visible_stream_text(final_deltas)
         if streamed_text and streamed_text != answer:

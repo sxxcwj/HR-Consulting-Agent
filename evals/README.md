@@ -12,6 +12,8 @@
 - `pilot_failure_retest.json`：首轮两个失败案例的独立复验结果，用于确认缺陷是否稳定复现。
 - `pilot_results_round_1.json`—`pilot_results_round_3.json`：P0 修复后、同一冻结代码与案例契约下连续三轮的原始结果。
 - `pilot_results_3_round_summary.json`：三轮 48 个场景的汇总指标、文件摘要和阶段决定。
+- `pilot_results_m21.json`、`pilot_results_m21_retest.json`：M21 格式修复加固后另存的模拟结果。历史三轮属于旧冻结版本，不能视为新代码已完成三轮；本次结果说明见 `DEVELOPMENT_MANUAL.md` 第 12 节。
+- `m21_validation_summary.json`：本次离线/在线/CLI验证、两轮原始成绩、当前源码与结果摘要，以及未完成新三轮门槛的明确记录。
 
 ## `test_cases.json` 字段
 

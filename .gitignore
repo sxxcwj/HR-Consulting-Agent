@@ -16,3 +16,45 @@ state/memories.json
 state/memories.json.tmp
 reports/generated/*.md
 reports/generated/*.tmp
+
+# --- GitHub 发布补充（2026-10-07）---
+# 其他虚拟环境目录
+venv/
+env/
+ENV/
+
+# 环境变量变体（保留无密钥的 .env.example 模板）
+.env.*
+!.env.example
+
+# IDE / 编辑器
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 测试与类型检查缓存
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# 日志与临时文件
+*.log
+logs/
+*.tmp
+*.bak
+*.orig
+
+# 本地数据库 / 运行产物
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+*.db
+
+# 本地运行数据目录（单机私有数据，不入库）
+reports/generated/
+state/*.tmp

@@ -108,6 +108,81 @@ def _function_call(arguments: dict[str, object]) -> SimpleNamespace:
     )
 
 
+def test_stream_repair_keeps_evidence_without_reexecuting_tools() -> None:
+    tool_response = _function_call({"leavers": 20, "average_headcount": 200})
+    client = _FakeStreamingClient(
+        [([], tool_response), _text_stream("坏格式"), _text_stream(VALID_ANALYSIS)]
+    )
+    agent = HRConsultant(client=client)  # type: ignore[arg-type]
+    chunks: list[str] = []
+    answer = agent.ask_streamed(
+        "平均200人，离职20人，请计算离职率", on_text_delta=chunks.append
+    )
+    assert answer == VALID_ANALYSIS.strip()
+    repair = client.responses.calls[2]
+    assert repair["tools"] == []
+    outputs = [
+        item for item in repair["input"] if item.get("type") == "function_call_output"
+    ]
+    assert json.loads(outputs[0]["output"])["turnover_rate"] == 10
+    assert agent.last_tool_calls == ["calculate_turnover_rate"]
+    assert "".join(chunks) == agent.last_final_output
+
+
+def test_stream_repair_rejects_persistent_tool(monkeypatch: pytest.MonkeyPatch) -> None:
+    writes: list[object] = []
+    monkeypatch.setattr("src.agent.save_memory", lambda **kwargs: writes.append(kwargs))
+    call = {
+        "type": "function_call",
+        "name": "save_memory",
+        "call_id": "call_write",
+        "arguments": '{"category":"preference","content":"不应保存"}',
+    }
+    client = _FakeStreamingClient(
+        [_text_stream("坏格式"), ([], SimpleNamespace(output=[call]))]
+    )
+    agent = HRConsultant(client=client)  # type: ignore[arg-type]
+    chunks: list[str] = []
+    with pytest.raises(ResponseFormatError, match="格式修复阶段不允许调用工具"):
+        agent.ask_streamed("人员流失怎么办？", on_text_delta=chunks.append)
+    assert writes == []
+    assert chunks == []
+    assert agent.history == []
+    assert agent.last_final_output is None
+
+
+def test_stream_json_fallback_exhaustion_is_safe_and_retryable() -> None:
+    client = _FakeStreamingClient(
+        [
+            json.JSONDecodeError("private malformed payload", "{", 1),
+            json.JSONDecodeError("private malformed payload", "{", 1),
+            _text_stream(VALID_ANALYSIS),
+        ]
+    )
+    agent = HRConsultant(client=client)  # type: ignore[arg-type]
+    chunks: list[str] = []
+    with pytest.raises(AgentError, match="无法解析") as captured:
+        agent.ask_streamed("绩效目标不清晰怎么办？", on_text_delta=chunks.append)
+    assert "private" not in str(captured.value)
+    assert chunks == []
+    assert agent.history == []
+    answer = agent.ask_streamed("重试", on_text_delta=chunks.append)
+    assert answer == VALID_ANALYSIS.strip()
+
+
+def test_stream_repair_json_fallback_never_reenables_tools() -> None:
+    client = _FakeStreamingClient(
+        [
+            _text_stream("坏格式"), json.JSONDecodeError("bad json", "{", 1),
+            _text_stream(VALID_ANALYSIS),
+        ]
+    )
+    agent = HRConsultant(client=client)  # type: ignore[arg-type]
+    answer = agent.ask_streamed("绩效目标不清晰怎么办？", on_text_delta=lambda _: None)
+    assert answer == VALID_ANALYSIS.strip()
+    assert all(call["tools"] == [] for call in client.responses.calls[1:])
+
+
 def test_ordinary_hr_question_streams_only_text_deltas() -> None:
     events, final_response = _text_stream(VALID_ANALYSIS)
     client = _FakeStreamingClient([(events, final_response)])
@@ -203,6 +278,7 @@ def test_malformed_stream_is_repaired_before_any_text_is_emitted() -> None:
     assert len(client.responses.calls) == 2
     assert agent.last_response is repaired_response
     assert agent.history[-1]["content"] == answer
+    assert client.responses.calls[1]["tools"] == []
 
 
 def test_repeated_malformed_stream_is_not_emitted_or_committed() -> None:

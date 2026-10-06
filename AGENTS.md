@@ -60,3 +60,49 @@ V1.0 只允许加固、重构、测试、评测、打包与文档改进，不增
 - Word、PDF、HTML 或演示文稿报告；报告模板设计器、批量生成、自动发送、审批、电子签章；除生成的 Markdown 报告、知识库既有文件、`state/projects.json` 与 `state/memories.json` 之外的其他持久化 State。
 
 不得为上述能力预建接口、数据模型、服务或依赖。Excel Reader 只读取结构化数据；`src/analytics/` 只接收内存记录并统计；Document Loader/Parser 只形成标准化文档；RAG 层只分块、向量化和检索；State 层只保存用户明确确认的项目上下文与引用；Memory 层只保存用户明确授权的稳定上下文；Report Generator 只校验、排版并保存 Agent 提供的结构化草稿；Agent 只选择工具、说明来源、解释结果和控制判断边界。不得根据 Excel preview 自行计算，不得把检索结果、文件规定、项目 State 或 Memory 当成现实执行证据，不得修改源文件或填补关键业务数据。若请求与 V1.0 范围冲突，先指出冲突并确认适用版本。
+
+# HR Consulting Agent
+
+## Project Goal
+
+Build a professional HR Consulting Agent for HR consulting, organizational management, compensation, performance management, workforce analytics and related consulting work.
+
+## Architecture Principle
+
+```
+Agent
+  -> Skills
+  -> Tools
+  -> Data / Knowledge Base
+```
+
+Each layer should remain modular and loosely coupled.
+
+## Version Roadmap
+
+| Version | Scope | Status |
+| --- | --- | --- |
+| V0.3 | Excel Reader | 已完成 |
+| V0.4 | Data Analysis Tools | 已完成 |
+| V0.5 | File Knowledge Base | 已完成 |
+| V0.6 | RAG | 已完成 |
+| V0.7 | Project State | 已完成 |
+| V0.8 | Memory | 已完成 |
+| V0.9 | Report Generation | 已完成 |
+| V1.0 | Complete HR Consulting Agent | 当前 Release Candidate |
+| V2.0 | Multi-Agent System | 未来版本，未开始 |
+
+说明：V0.3—V0.9 已完成，V1.0 为当前 Release Candidate。V2.0 属于未来版本，仍受上文 Scope Control 约束，不提前开发；上述路线图不构成对当前 Milestone 的范围授权。
+
+## Development Rules
+
+1. Keep modules independent.
+2. Excel reading and data analysis must remain separate capabilities.
+3. Do not implement future-version functions prematurely.
+4. Every important tool should have tests.
+5. Run tests before completing development tasks.
+6. Preserve backward compatibility where practical.
+7. Update README when architecture changes.
+8. Never commit API keys, passwords, secrets or private client data.
+9. Prefer simple, maintainable architecture over unnecessary complexity.
+10. Before making major architectural changes, inspect the existing implementation first.

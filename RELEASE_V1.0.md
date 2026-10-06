@@ -23,6 +23,8 @@ V1.0 RC 完整继承 V0.1—V0.9，不增加新的 HR 业务 Tool。此次发布
 
 本次本地验证结果：`245 passed, 21 deselected`；真实 DeepSeek 回归 `21 passed, 245 deselected`；Python 3.11、3.12、3.13 源码编译检查通过。完整离线测试在本机 Python 3.13 执行，其他版本由 CI 矩阵持续验证。
 
+以上为 M17 初始发布记录，不代表后续源码已重新打 tag。M21 的当前验证、历史模拟试点与剩余准入门槛见 `DEVELOPMENT_MANUAL.md` 第 12 节；不得用旧 tag 或旧48/48结果证明本次修改已满足真实业务试点门槛。
+
 ## Installation and validation
 
 ```bash

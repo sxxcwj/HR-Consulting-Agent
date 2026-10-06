@@ -2,15 +2,17 @@
 
 面向企业组织与人力资源问题的单 Agent 命令行顾问。运行环境为 Python 3.11 或更新版本。V1.0 不新增业务能力，完整保留 V0.1—V0.9 的 HR 问答、计算、Excel 分析、企业文件读取、本地 RAG、项目 State、显式长期 Memory 和基于证据的 Markdown 报告生成，并补齐安装、权限、测试、评测和发布加固。
 
+完整开发复盘、架构、工具职责、操作示例、测试发布步骤和排障方法见 [开发操作手册](DEVELOPMENT_MANUAL.md)。本 README 用于快速运行；手册用于维护与后续开发。
+
 ## 安装
 
-先在终端进入包含本文件的项目根目录。当前电脑上的路径为：
+先在终端进入包含本文件的项目根目录（下方 `/path/to/hr_agent` 请替换为你本机的实际路径）：
 
 ```bash
-cd /Users/wangjian/Documents/ChatGPT/hr_agent
+cd /path/to/hr_agent
 ```
 
-如果项目已移动，请改用实际路径。下文所有命令都在该目录执行。
+下文所有命令都在该目录执行。
 
 ```bash
 python3 -m venv .venv
@@ -22,14 +24,14 @@ python -m pip install ".[dev]"
 
 从 `.env.example` 查看变量名称。可在运行终端设置 `DEEPSEEK_API_KEY`，也可把 `.env.example` 复制为项目根目录下的 `.env`，仅在 `.env` 中填入真实密钥，并执行 `chmod 600 .env` 限制本机读取权限。`.env` 已被 Git 忽略；不要把密钥写入 `.env.example` 或提交到仓库。可选用 `DEEPSEEK_MODEL` 指定模型，默认使用 `deepseek-flash`。已有环境变量优先于 `.env` 中的值。
 
-在当前终端设置环境变量后再运行程序，例如：
+推荐在本地编辑器配置 `.env`，不要把真实密钥直接输入终端命令或聊天，以免进入 shell 历史。如果 `.env` 已存在，不要覆盖；尚不存在时可运行：
 
 ```bash
-export DEEPSEEK_API_KEY='YOUR_KEY'
-hragent
+cp -n .env.example .env
+chmod 600 .env
 ```
 
-将占位符替换为未在聊天或仓库公开的 DeepSeek API 密钥。如果选择 `.env` 方式，直接运行 `python -m src.main` 即可。企业问题文本会发送至 DeepSeek API。完整对话历史只在当前进程内保留；退出程序后不会保存聊天记录。只有用户明确要求写入的项目 State 或长期 Memory 会保存在本地 JSON 文件中。
+用本地编辑器填写未在聊天或仓库公开的 DeepSeek API 密钥；曾公开的密钥应先吊销并重新生成。之后直接运行 `hragent` 或 `python -m src.main`。企业问题文本会发送至 DeepSeek API。完整对话历史只在当前进程内保留；退出程序后不会保存聊天记录。只有用户明确要求写入的项目 State 或长期 Memory 会保存在本地 JSON 文件中。
 
 ## 运行
 
@@ -51,12 +53,14 @@ python -m src.main
 
 Function Tool 调用仍在同一 Responses API 流程中完成。普通用户只会看到经验证的最终自然语言文本，不会看到工具调用前说明、工具参数、`tool_call_id`、JSON 结果或 SDK 底层事件。五部分结构不合格时会在尚未显示文本前执行一次格式修复；修复仍失败则不显示、不提交。程序在结束后保留完整最终响应，供当前会话上下文、测试和后续处理使用。流中断时会显示简洁错误，本轮不完整回答不会写入会话历史。
 
+格式修复保留本轮已获得的工具结果，但禁用再次 Tool 调用，防止重复写入项目、Memory 或报告。注意：回答失败并不回滚前面已经成功的 Tool 写入；重试写入请求前先检查实际状态。SDK 流式参数解析失败最多进行一次兼容重试，再失败则显示简洁错误并允许重新输入问题。
+
 在支持 ANSI 颜色的交互式终端中，输入提示和用户键入内容显示为青色，Agent 回答显示为绿色，便于区分对话双方。通过管道或重定向运行时自动关闭颜色；如需在交互式终端关闭，可运行 `NO_COLOR=1 hragent`。
 
 运行数据根目录优先使用环境变量 `HR_AGENT_HOME`；未设置时，如果当前目录或源码目录是本项目根目录，则使用该项目；安装后从其他目录运行时，回退到当前用户的 `~/.hragent` 私有目录。要让任意目录中的 `hragent` 继续使用本项目现有知识库、State、Memory 和报告，请在 shell 配置中设置：
 
 ```bash
-export HR_AGENT_HOME='/Users/wangjian/Documents/ChatGPT/hr_agent'
+export HR_AGENT_HOME='/path/to/hr_agent'
 ```
 
 `HR_AGENT_HOME` 会改变所有本地运行数据和 `.env` 的查找位置，应指向你明确控制的专用目录。
@@ -80,7 +84,7 @@ Tool 只负责计算；Agent 仍按“问题判断、可能原因、需要补充
 在问题中提供本地 `.xlsx` 文件路径，例如：
 
 ```text
-请读取 /Users/wangjian/Documents/ChatGPT/hr_agent/data/sample_employees.xlsx，这个Excel有哪些字段？
+请读取 /path/to/hr_agent/data/sample_employees.xlsx，这个Excel有哪些字段？
 ```
 
 可询问文件名、Sheet、指定 Sheet、行列数、字段名、字段类型、缺失值数量、敏感字段和前 5 行预览。单 Sheet 可默认读取；多个 Sheet 时必须指定，Agent 不会自行选择。姓名、身份证号、手机号、邮箱、地址等敏感字段可以显示字段名，但预览值会脱敏。
@@ -88,7 +92,7 @@ Tool 只负责计算；Agent 仍按“问题判断、可能原因、需要补充
 V0.4 支持总人数和分组人数、薪酬描述性统计、基础离职人数、绩效描述性统计和缺失比例。例如：
 
 ```text
-请读取 /Users/wangjian/Documents/ChatGPT/hr_agent/data/sample_employees.xlsx，各部门平均工资是多少？
+请读取 /path/to/hr_agent/data/sample_employees.xlsx，各部门平均工资是多少？
 ```
 
 Excel Reader 只读取，`src/analytics/` 只计算，HR Agent 只解释。V0.4 数据链路不使用 RAG，也不支持复杂异常检测、相关性、预测、因果推断、复杂薪酬合理性判断、员工标签或自动人事决策。
@@ -228,6 +232,20 @@ python -m pytest -q
 默认测试只运行离线测试，在线测试会被排除，以免意外产生 API 请求。真实 API 测试需要在执行环境中设置 `DEEPSEEK_API_KEY`；测试命令不会自动加载 `.env`。单元测试使用模拟客户端，不会发起网络请求。
 
 配置密钥后可运行 `python -m pytest -q -m live`，检查真实连接与固定验收案例。V0.9 报告测试位于 `tests/test_report_*.py`；V0.8 Memory、V0.7 State、V0.6 RAG、V0.5 文件与 V0.4 分析测试继续保留。`evals/acceptance_cases.json` 是 12 个 V0.1 正式验收案例，`evals/test_cases.json` 是补充人工评测案例，`evals/v1_capability_cases.json` 则覆盖 V0.2—V0.9 的工具能力契约。GitHub Actions 会在 Python 3.11、3.12 和 3.13 上运行离线测试；真实 API 测试不进入 CI，避免使用密钥和产生费用。
+
+## Roadmap
+
+| 版本 | 范围 | 状态 |
+| --- | --- | --- |
+| V0.3 | Excel Reader | 已完成 |
+| V0.4 | Data Analysis Tools | 已完成 |
+| V0.5 | File Knowledge Base | 已完成 |
+| V0.6 | RAG | 已完成 |
+| V0.7 | Project State | 已完成 |
+| V0.8 | Memory | 已完成 |
+| V0.9 | Report Generation | 已完成 |
+| V1.0 | Complete HR Consulting Agent | 当前 Release Candidate |
+| V2.0 | Multi-Agent System | 未来版本，未开始 |
 
 ## V1.0 发布边界
 
